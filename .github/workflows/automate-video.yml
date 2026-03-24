@@ -2,11 +2,11 @@ name: Daily Civil Engineering Shorts
 
 on:
   schedule:
-    - cron: '30 2 * * *'     # IST subah \~8:00 baje (UTC 2:30 AM)
+    - cron: '30 2 * * *'   # IST subah \~8:00 baje
   workflow_dispatch:
     inputs:
       topic:
-        description: 'Custom Civil Engineering Topic'
+        description: 'Custom Topic (optional)'
         required: false
 
 jobs:
@@ -26,13 +26,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Save YouTube Secret
+      - name: Save Client Secret
         run: echo '${{ secrets.YOUTUBE_CLIENT_SECRET }}' > client_secrets.json
 
-      - name: Generate Civil Engineering Video
+      - name: Run Video Generator
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          HUGGINGFACE_API_TOKEN: ${{ secrets.HUGGINGFACE_API_TOKEN }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           VIDEO_TOPIC: ${{ github.event.inputs.topic }}
         run: python main.py
