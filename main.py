@@ -5,98 +5,95 @@ import edge_tts
 import requests
 from moviepy.editor import *
 from google import genai
-from pexels_api import PexelsAPI
+from huggingface_hub import InferenceClient
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import pickle
 import random
+import time
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-pexels = PexelsAPI(os.getenv("PEXELS_API_KEY"))
+hf_client = InferenceClient(token=os.getenv("HUGGINGFACE_API_TOKEN"))
 
-# Civil Engineering ke trending topics (2026 ke hisab se)
+# Civil Engineering Topics
 CIVIL_TOPICS = [
     "AI Revolution in Civil Engineering 2026",
     "Modular Construction aur Prefabrication ki Kranti",
-    "Sustainable Infrastructure aur Green Building Trends",
-    "BIM vs Civil 3D 2026 - Kya Naya Aaya?",
+    "Sustainable Green Building Trends 2026",
+    "BIM vs Civil 3D Future",
     "Digital Twins in Smart Cities",
-    "Drone aur LiDAR se Construction ka Future",
-    "Climate Resilient Infrastructure kaise banaye",
-    "Data Centers ke liye Civil Engineering Challenges",
-    "3D Printing in Construction - Real Examples",
-    "Autonomous Construction Machines aur Robotics"
+    "Drone LiDAR in Construction",
+    "Climate Resilient Infrastructure"
 ]
 
 def get_random_civil_topic():
     return random.choice(CIVIL_TOPICS)
 
 def generate_script(topic):
-    prompt = f"""You are a professional Civil Engineering YouTube Shorts creator.
-Topic: {topic} (Hindi + English mix mein energetic style)
+    prompt = f"""Professional Civil Engineering YouTube Shorts creator.
+Topic: {topic}
 
 Return ONLY valid JSON:
 {{
-  "title": "Very catchy title under 65 characters",
-  "description": "Full description with emojis, hashtags like #CivilEngineering #Construction #AIinCivil aur strong CTA",
-  "tags": ["CivilEngineering", "Construction", "Trending"],
+  "title": "Catchy title under 65 chars",
+  "description": "Description with emojis + hashtags #CivilEngineering",
+  "tags": ["CivilEngineering", "Construction"],
   "scenes": [
-    {{"text": "Narration line with energy", "duration": 8, "visual_prompt": "Civil engineering related B-roll description"}}
+    {{"text": "Energetic narration", "duration": 7, "visual_prompt": "Civil engineering scene description"}}
   ]
-}}
-First 3 seconds mein strong hook ho."""
-    
+}}"""
     response = client.models.generate_content(model="gemini-2.0-flash", contents=[prompt])
     text = response.text.strip()
     if text.startswith("```json"): text = text[7:-3].strip()
     return json.loads(text)
 
 def generate_thumbnail(title, topic):
-    prompt = f"""Highly clickable YouTube Shorts thumbnail 1280x720 for Civil Engineering video:
+    prompt = f"""Viral YouTube Shorts thumbnail 1280x720 Civil Engineering:
 Title: {title}
-Topic: {topic}
-
-- Big bold text (white/yellow with black outline)
-- Construction site, modern building, drone view, AI elements
-- Bright energetic colors, professional civil engineering feel
-- Add text like "2026 Revolution" or "Future of Civil" """
-
-    response = client.models.generate_images(
-        model="gemini-3.1-flash-image-preview",
-        prompt=prompt,
-        number_of_images=1
-    )
+- Big bold text, construction site, modern building, AI elements, bright colors"""
+    response = client.models.generate_images(model="gemini-3.1-flash-image-preview", prompt=prompt, number_of_images=1)
     image = response.images[0]
     image.save("thumbnail.jpg")
-    print("✅ Civil Engineering Thumbnail ban gaya!")
+    print("✅ Thumbnail ready!")
     return "thumbnail.jpg"
 
 async def text_to_speech(text):
-    communicate = edge_tts.Communicate(text, "hi-IN-SwaraNeural")  # Natural Hindi voice
+    communicate = edge_tts.Communicate(text, "hi-IN-SwaraNeural")
     await communicate.save("voice.mp3")
 
+def generate_hf_video_clip(visual_prompt, duration=6):
+    """Hugging Face se AI video clip generate (short clip)"""
+    try:
+        # Example: CogVideoX ya Mochi model use karo (free inference)
+        # Note: Real mein slow ho sakta hai, timeout set karo
+        video_bytes = hf_client.text_to_video(
+            prompt=visual_prompt + ", civil engineering construction site, realistic, 4k",
+            model="zai-org/CogVideoX-5b",   # ya "genmo/mochi-1-preview" try kar sakte ho
+            num_frames=48,  # \~6 seconds @ 8fps
+        )
+        filename = "hf_clip.mp4"
+        with open(filename, "wb") as f:
+            f.write(video_bytes)
+        clip = VideoFileClip(filename).subclip(0, min(duration, VideoFileClip(filename).duration))
+        return clip
+    except Exception as e:
+        print("HF video failed:", e)
+        # Fallback: black screen
+        return ColorClip(size=(1280, 720), color=(0,0,0), duration=duration)
+
 def create_video(scenes):
-    # ... (same as before - video + clips + voice)
     video_clips = []
     audio_clips = []
     for i, scene in enumerate(scenes):
         asyncio.run(text_to_speech(scene['text']))
-        audio = AudioFileClip("voice.mp3").set_duration(scene.get('duration', 8))
+        audio = AudioFileClip("voice.mp3").set_duration(scene.get('duration', 7))
         audio_clips.append(audio)
 
-        try:
-            videos = pexels.search_videos(query=scene['visual_prompt'] + " civil engineering construction", per_page=1)
-            if videos and videos.get('videos'):
-                url = videos['videos'][0]['video_files'][0]['link']
-                r = requests.get(url, timeout=15)
-                with open(f"clip_{i}.mp4", "wb") as f:
-                    f.write(r.content)
-                clip = VideoFileClip(f"clip_{i}.mp4").subclip(0, scene.get('duration', 8))
-                video_clips.append(clip)
-        except:
-            video_clips.append(ColorClip(size=(1280,720), color=(0,0,0), duration=scene.get('duration', 8)))
+        # Hugging Face se AI clip try karo
+        clip = generate_hf_video_clip(scene['visual_prompt'])
+        video_clips.append(clip)
 
     final_video = concatenate_videoclips(video_clips, method="compose")
     final_audio = concatenate_audioclips(audio_clips)
@@ -106,11 +103,10 @@ def create_video(scenes):
 
 if __name__ == "__main__":
     topic = os.getenv("VIDEO_TOPIC", get_random_civil_topic())
-    print(f"🚀 Civil Engineering Video ban raha hai: {topic}")
+    print(f"🚀 Civil Engineering Video: {topic}")
 
     script = generate_script(topic)
     thumbnail_file = generate_thumbnail(script["title"], topic)
     video_file = create_video(script["scenes"])
 
-    print("✅ Civil Engineering Video + Thumbnail ready!")
-    print(f"Title: {script['title']}")
+    print("✅ Video + Thumbnail ready!")
