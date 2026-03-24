@@ -4,7 +4,7 @@ import asyncio
 import edge_tts
 import requests
 import random
-from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips, ColorClip, concatenate_audioclips
+from moviepy.editor import *          # Important for moviepy==1.0.3
 import google.generativeai as genai
 from huggingface_hub import InferenceClient
 from googleapiclient.discovery import build
@@ -13,7 +13,7 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 import pickle
 
-# Configure Gemini
+# ===================== CONFIG =====================
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 hf_client = InferenceClient(token=os.getenv("HUGGINGFACE_API_TOKEN"))
 
@@ -37,7 +37,7 @@ Topic: {topic}
 Return ONLY valid JSON:
 {{
   "title": "Catchy title under 65 chars",
-  "description": "Full description + emojis + hashtags #CivilEngineering",
+  "description": "Full description + emojis + hashtags #CivilEngineering #Construction",
   "tags": ["CivilEngineering", "Construction"],
   "scenes": [
     {{"text": "Energetic narration line", "duration": 7, "visual_prompt": "Civil engineering construction scene"}}
@@ -46,24 +46,22 @@ Return ONLY valid JSON:
     model = genai.GenerativeModel('gemini-2.0-flash')
     response = model.generate_content(prompt)
     text = response.text.strip()
-    if text.startswith("```json"): text = text[7:-3].strip()
+    if text.startswith("```json"): 
+        text = text[7:-3].strip()
     return json.loads(text)
 
 def generate_thumbnail(title, topic):
-    prompt = f"""Viral YouTube Shorts thumbnail 1280x720 Civil Engineering:
+    prompt = f"""Viral YouTube Shorts thumbnail 1280x720 for Civil Engineering:
 Title: {title}
 Bright colors, construction site, modern building, big bold text"""
-    model = genai.GenerativeModel('gemini-3.1-flash-image-preview')  # Image generation
-    response = model.generate_content(prompt)   # Note: Image generation may need different model in some cases
-    # For now using text fallback - we'll fix image later if needed
-    # Temporary: use simple text for thumbnail (we'll improve later)
-    print("Thumbnail generation skipped for now (image model issue)")
-    # Save a dummy thumbnail
-    from PIL import Image, ImageDraw, ImageFont
-    img = Image.new('RGB', (1280, 720), color=(0, 100, 200))
+    
+    # Temporary simple thumbnail (image generation model issue ke liye)
+    from PIL import Image, ImageDraw
+    img = Image.new('RGB', (1280, 720), color=(10, 50, 120))
     draw = ImageDraw.Draw(img)
-    draw.text((100, 300), title, fill=(255,255,255))
+    draw.text((150, 300), title[:60], fill=(255, 255, 255))
     img.save("thumbnail.jpg")
+    print("✅ Thumbnail created!")
     return "thumbnail.jpg"
 
 async def text_to_speech(text):
@@ -73,22 +71,25 @@ async def text_to_speech(text):
 def create_video(scenes):
     video_clips = []
     audio_clips = []
+
     for i, scene in enumerate(scenes):
         asyncio.run(text_to_speech(scene['text']))
         audio = AudioFileClip("voice.mp3").set_duration(scene.get('duration', 7))
         audio_clips.append(audio)
 
         try:
+            # Hugging Face AI video clip
             video_bytes = hf_client.text_to_video(
-                prompt=scene['visual_prompt'] + ", realistic civil engineering construction site, 4k",
+                prompt=scene['visual_prompt'] + ", realistic civil engineering construction site",
                 model="zai-org/CogVideoX-5b"
             )
             with open(f"clip_{i}.mp4", "wb") as f:
                 f.write(video_bytes)
             clip = VideoFileClip(f"clip_{i}.mp4").subclip(0, 7)
             video_clips.append(clip)
-        except:
-            video_clips.append(ColorClip(size=(1280,720), color=(0,0,0), duration=7))
+        except Exception as e:
+            print("HF clip failed, using black clip:", e)
+            video_clips.append(ColorClip(size=(1280, 720), color=(0,0,0), duration=7))
 
     final_video = concatenate_videoclips(video_clips, method="compose")
     final_audio = concatenate_audioclips(audio_clips)
@@ -96,17 +97,61 @@ def create_video(scenes):
     final_video.write_videofile("final_video.mp4", fps=24, codec="libx264", audio_codec="aac")
     return "final_video.mp4"
 
-# ... (baaki upload functions same as pehle wale)
+def get_youtube_service():
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    creds = None
+    if os.path.exists("token.pickle"):
+        with open("token.pickle", "rb") as f:
+            creds = pickle.load(f)
 
-# Main
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            client_secret = json.loads(os.getenv("YOUTUBE_CLIENT_SECRET"))
+            creds = Credentials(
+                None,
+                refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_secret["installed"]["client_id"],
+                client_secret=client_secret["installed"]["client_secret"],
+                scopes=SCOPES
+            )
+        with open("token.pickle", "wb") as f:
+            pickle.dump(creds, f)
+    return build("youtube", "v3", credentials=creds)
+
+def upload_to_youtube(video_file, title, description, tags, thumbnail_file):
+    youtube = get_youtube_service()
+    body = {
+        'snippet': {'title': title, 'description': description, 'tags': tags, 'categoryId': '22'},
+        'status': {'privacyStatus': 'public'}
+    }
+    media = MediaFileUpload(video_file, chunksize=-1, resumable=True)
+    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+    response = request.execute()
+
+    if os.path.exists(thumbnail_file):
+        thumb_media = MediaFileUpload(thumbnail_file, mimetype='image/jpeg')
+        youtube.thumbnails().set(videoId=response['id'], media_body=thumb_media).execute()
+        print("✅ Thumbnail set ho gaya!")
+
+    print(f"🎉 Video uploaded! ID: {response['id']}")
+
+# ===================== MAIN =====================
 if __name__ == "__main__":
     topic = os.getenv("VIDEO_TOPIC", get_random_topic())
-    print(f"🚀 Generating: {topic}")
+    print(f"🚀 Civil Engineering Video ban raha hai: {topic}")
 
     script = generate_script(topic)
     thumbnail_file = generate_thumbnail(script["title"], topic)
     video_file = create_video(script["scenes"])
 
-    print("✅ Video ready!")
-    # Upload code abhi comment hai taaki pehle yeh chal jaye
-    # upload_to_youtube(...)
+    upload_to_youtube(
+        video_file,
+        script["title"],
+        script["description"],
+        script["tags"],
+        thumbnail_file
+    )
+    print("✅ Sab complete! Video YouTube pe upload ho gaya.")
