@@ -6,4 +6,4 @@ Pillow
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
-pexels-api
+huggingface_hub
