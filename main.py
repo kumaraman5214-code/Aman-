@@ -12,6 +12,7 @@ from google.auth.transport.requests import Request
 import pickle
 from PIL import Image, ImageDraw
 
+# ===================== CONFIG =====================
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 CIVIL_TOPICS = [
@@ -140,4 +141,4 @@ if __name__ == "__main__":
         script["tags"],
         thumbnail_file
     )
-    print("✅ Sab complete!") 
+    print("✅ Sab complete!")
