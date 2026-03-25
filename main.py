@@ -40,7 +40,7 @@ Return ONLY valid JSON:
   "description": "Full description + emojis + hashtags #CivilEngineering",
   "tags": ["CivilEngineering", "Construction"],
   "scenes": [
-    {{"text": "Energetic narration line", "duration": 7, "visual_prompt": "Civil engineering scene"}}
+    {{"text": "Energetic narration line", "duration": 7}}
   ]
 }}"""
         model = genai.GenerativeModel('gemini-2.0-flash')
@@ -52,15 +52,10 @@ Return ONLY valid JSON:
         print("✅ Gemini se script ban gaya!")
         return script
     except Exception as e:
-        if "quota" in str(e).lower() or "resource_exhausted" in str(e).lower():
-            print("⚠️ Gemini quota khatam → Fallback mode on")
-        else:
-            print("⚠️ Gemini error:", str(e)[:100])
-        
-        # Fallback Script
+        print("⚠️ Gemini quota khatam ya error → Fallback mode on")
         return {
             "title": f"{topic} - Important Facts 🔥",
-            "description": f"{topic} ke baare mein sab kuch 60 seconds mein. Civil Engineering ke liye must watch! #CivilEngineering",
+            "description": f"{topic} ke baare mein sab kuch 60 seconds mein. Civil Engineering ke liye must watch! #CivilEngineering #Construction",
             "tags": ["CivilEngineering", "Construction"],
             "scenes": [
                 {"text": f"Dosto, aaj baat karte hain {topic} ki!", "duration": 7},
@@ -90,8 +85,7 @@ def create_video(scenes):
         audio = AudioFileClip("voice.mp3")
         audio_clips.append(audio)
 
-        # Black background clip with exact audio duration
-        duration = audio.duration if audio.duration > 0 else 7
+        duration = max(audio.duration, 1) if audio.duration else 7
         clip = ColorClip(size=(1280, 720), color=(0, 0, 0), duration=duration)
         video_clips.append(clip)
 
@@ -100,36 +94,46 @@ def create_video(scenes):
     final_video = final_video.set_audio(final_audio)
 
     final_video.write_videofile(
-        "final_video.mp4", 
-        fps=24, 
-        codec="libx264", 
+        "final_video.mp4",
+        fps=24,
+        codec="libx264",
         audio_codec="aac",
         temp_audiofile="temp-audio.m4a",
         remove_temp=True,
-        threads=2
+        threads=2,
+        preset="ultrafast"
     )
     return "final_video.mp4"
 
-# ===================== YouTube Upload =====================
 def get_youtube_service():
     SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
     creds = None
+
     if os.path.exists("token.pickle"):
         with open("token.pickle", "rb") as f:
             creds = pickle.load(f)
 
     if not creds or not creds.valid:
-        client_secret = json.loads(os.getenv("YOUTUBE_CLIENT_SECRET"))
-        creds = Credentials(
-            None,
-            refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_secret["installed"]["client_id"],
-            client_secret=client_secret["installed"]["client_secret"],
-            scopes=SCOPES
-        )
+        print("🔄 YouTube token refresh kar raha hoon...")
+        try:
+            client_secret = json.loads(os.getenv("YOUTUBE_CLIENT_SECRET"))
+            creds = Credentials(
+                None,
+                refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_secret["installed"]["client_id"],
+                client_secret=client_secret["installed"]["client_secret"],
+                scopes=SCOPES
+            )
+            creds.refresh(Request())
+            print("✅ Token refresh successful!")
+        except Exception as e:
+            print("❌ Token refresh failed:", str(e))
+            raise
+
         with open("token.pickle", "wb") as f:
             pickle.dump(creds, f)
+
     return build("youtube", "v3", credentials=creds)
 
 def upload_to_youtube(video_file, title, description, tags, thumbnail_file):
@@ -147,12 +151,12 @@ def upload_to_youtube(video_file, title, description, tags, thumbnail_file):
         youtube.thumbnails().set(videoId=response['id'], media_body=thumb_media).execute()
         print("✅ Thumbnail set ho gaya!")
 
-    print(f"🎉 Video uploaded! ID: {response['id']}")
+    print(f"🎉 Video uploaded successfully! Video ID: {response['id']}")
 
 # ===================== MAIN =====================
 if __name__ == "__main__":
     topic = os.getenv("VIDEO_TOPIC", get_random_topic())
-    print(f"🚀 Starting: {topic}")
+    print(f"🚀 Starting Civil Engineering Shorts: {topic}")
 
     script = generate_script(topic)
     thumbnail_file = generate_thumbnail(script["title"])
@@ -165,4 +169,4 @@ if __name__ == "__main__":
         script["tags"],
         thumbnail_file
     )
-    print("✅ Sab complete!")
+    print("✅ Sab complete ho gaya!")
