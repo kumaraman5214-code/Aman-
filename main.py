@@ -50,8 +50,8 @@ Return ONLY valid JSON:
         script = json.loads(text)
         print("✅ Gemini se script ban gaya!")
         return script
-    except Exception as e:
-        print("⚠️ Gemini quota khatam → Fallback mode on")
+    except:
+        print("⚠️ Gemini quota khatam → Fallback mode")
         return {
             "title": f"{topic} - Important Facts 🔥",
             "description": f"{topic} ke baare mein sab kuch. Civil Engineering ke liye must watch! #CivilEngineering",
@@ -108,13 +108,12 @@ def get_youtube_service():
     if not creds or not creds.valid:
         print("🔄 YouTube token refresh kar raha hoon...")
         try:
-            client_secret = json.loads(os.getenv("YOUTUBE_CLIENT_SECRET"))
             creds = Credentials(
                 None,
                 refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id=client_secret["installed"]["client_id"],
-                client_secret=client_secret["installed"]["client_secret"],
+                client_id="",   # Client ID ab nahi chahiye
+                client_secret="",
                 scopes=SCOPES
             )
             creds.refresh(Request())
@@ -145,7 +144,6 @@ def upload_to_youtube(video_file, title, description, tags, thumbnail_file):
 
     print(f"🎉 Video uploaded successfully! Video ID: {response['id']}")
 
-# ===================== MAIN =====================
 if __name__ == "__main__":
     topic = os.getenv("VIDEO_TOPIC", get_random_topic())
     print(f"🚀 Starting Civil Engineering Shorts: {topic}")
