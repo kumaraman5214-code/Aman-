@@ -112,8 +112,6 @@ def get_youtube_service():
                 None,
                 refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id="",   # Client ID ab nahi chahiye
-                client_secret="",
                 scopes=SCOPES
             )
             creds.refresh(Request())
