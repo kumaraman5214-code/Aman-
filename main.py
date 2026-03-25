@@ -2,7 +2,6 @@ import os
 import json
 import asyncio
 import edge_tts
-import requests
 import random
 from moviepy.editor import *
 import google.generativeai as genai
@@ -30,7 +29,6 @@ def get_random_topic():
     return random.choice(CIVIL_TOPICS)
 
 def generate_script(topic):
-    """Pehle Gemini try karega, agar quota khatam ho to fallback"""
     try:
         print("🤖 Gemini se script generate kar raha hoon...")
         prompt = f"""Professional Civil Engineering YouTube Shorts creator.
@@ -55,27 +53,26 @@ Return ONLY valid JSON:
         return script
     except Exception as e:
         if "quota" in str(e).lower() or "resource_exhausted" in str(e).lower():
-            print("⚠️ Gemini quota khatam hai. Fallback mode on...")
+            print("⚠️ Gemini quota khatam → Fallback mode on")
         else:
-            print("⚠️ Gemini error:", e)
+            print("⚠️ Gemini error:", str(e)[:100])
         
         # Fallback Script
-        print("📝 Fallback script use kar raha hoon...")
         return {
             "title": f"{topic} - Important Facts 🔥",
-            "description": f"{topic} ke baare mein sab kuch ek minute mein. Civil Engineering students ke liye must watch! #CivilEngineering #Construction",
-            "tags": ["CivilEngineering", "Construction", "Trending"],
+            "description": f"{topic} ke baare mein sab kuch 60 seconds mein. Civil Engineering ke liye must watch! #CivilEngineering",
+            "tags": ["CivilEngineering", "Construction"],
             "scenes": [
-                {"text": f"Dosto, aaj baat karte hain {topic} ki!", "duration": 7, "visual_prompt": "construction site"},
-                {"text": "Yeh technology bahut tezi se badal rahi hai.", "duration": 7, "visual_prompt": "modern building"},
-                {"text": "Comment mein apna opinion zaroor batao!", "duration": 6, "visual_prompt": "engineer working"}
+                {"text": f"Dosto, aaj baat karte hain {topic} ki!", "duration": 7},
+                {"text": "Yeh technology bahut tezi se badal rahi hai.", "duration": 7},
+                {"text": "Comment mein apna opinion zaroor batao!", "duration": 6}
             ]
         }
 
-def generate_thumbnail(title, topic):
+def generate_thumbnail(title):
     img = Image.new('RGB', (1280, 720), color=(0, 70, 130))
     draw = ImageDraw.Draw(img)
-    draw.text((80, 280), title[:55], fill=(255, 255, 255))
+    draw.text((100, 280), title[:60], fill=(255, 255, 255))
     img.save("thumbnail.jpg")
     print("✅ Thumbnail ban gaya!")
     return "thumbnail.jpg"
@@ -85,20 +82,35 @@ async def text_to_speech(text):
     await communicate.save("voice.mp3")
 
 def create_video(scenes):
-    video_clips = []
     audio_clips = []
-    for i, scene in enumerate(scenes):
-        asyncio.run(text_to_speech(scene['text']))
-        audio = AudioFileClip("voice.mp3").set_duration(scene.get('duration', 7))
-        audio_clips.append(audio)
-        video_clips.append(ColorClip(size=(1280, 720), color=(0,0,0), duration=scene.get('duration', 7)))
+    video_clips = []
 
-    final_video = concatenate_videoclips(video_clips, method="compose")
+    for scene in scenes:
+        asyncio.run(text_to_speech(scene['text']))
+        audio = AudioFileClip("voice.mp3")
+        audio_clips.append(audio)
+
+        # Black background clip with exact audio duration
+        duration = audio.duration if audio.duration > 0 else 7
+        clip = ColorClip(size=(1280, 720), color=(0, 0, 0), duration=duration)
+        video_clips.append(clip)
+
     final_audio = concatenate_audioclips(audio_clips)
+    final_video = concatenate_videoclips(video_clips, method="compose")
     final_video = final_video.set_audio(final_audio)
-    final_video.write_videofile("final_video.mp4", fps=24, codec="libx264", audio_codec="aac")
+
+    final_video.write_videofile(
+        "final_video.mp4", 
+        fps=24, 
+        codec="libx264", 
+        audio_codec="aac",
+        temp_audiofile="temp-audio.m4a",
+        remove_temp=True,
+        threads=2
+    )
     return "final_video.mp4"
 
+# ===================== YouTube Upload =====================
 def get_youtube_service():
     SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
     creds = None
@@ -107,18 +119,15 @@ def get_youtube_service():
             creds = pickle.load(f)
 
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            client_secret = json.loads(os.getenv("YOUTUBE_CLIENT_SECRET"))
-            creds = Credentials(
-                None,
-                refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=client_secret["installed"]["client_id"],
-                client_secret=client_secret["installed"]["client_secret"],
-                scopes=SCOPES
-            )
+        client_secret = json.loads(os.getenv("YOUTUBE_CLIENT_SECRET"))
+        creds = Credentials(
+            None,
+            refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_secret["installed"]["client_id"],
+            client_secret=client_secret["installed"]["client_secret"],
+            scopes=SCOPES
+        )
         with open("token.pickle", "wb") as f:
             pickle.dump(creds, f)
     return build("youtube", "v3", credentials=creds)
@@ -138,15 +147,15 @@ def upload_to_youtube(video_file, title, description, tags, thumbnail_file):
         youtube.thumbnails().set(videoId=response['id'], media_body=thumb_media).execute()
         print("✅ Thumbnail set ho gaya!")
 
-    print(f"🎉 Video uploaded successfully! ID: {response['id']}")
+    print(f"🎉 Video uploaded! ID: {response['id']}")
 
 # ===================== MAIN =====================
 if __name__ == "__main__":
     topic = os.getenv("VIDEO_TOPIC", get_random_topic())
-    print(f"🚀 Starting Civil Engineering Shorts: {topic}")
+    print(f"🚀 Starting: {topic}")
 
     script = generate_script(topic)
-    thumbnail_file = generate_thumbnail(script["title"], topic)
+    thumbnail_file = generate_thumbnail(script["title"])
     video_file = create_video(script["scenes"])
 
     upload_to_youtube(
@@ -156,4 +165,4 @@ if __name__ == "__main__":
         script["tags"],
         thumbnail_file
     )
-    print("✅ Process complete!")
+    print("✅ Sab complete!")
