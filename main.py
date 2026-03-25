@@ -4,18 +4,17 @@ import asyncio
 import edge_tts
 import requests
 import random
-from moviepy.editor import *          # Important for moviepy==1.0.3
+from moviepy.editor import *
 import google.generativeai as genai
-from huggingface_hub import InferenceClient
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 import pickle
+from PIL import Image, ImageDraw
 
 # ===================== CONFIG =====================
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-hf_client = InferenceClient(token=os.getenv("HUGGINGFACE_API_TOKEN"))
 
 CIVIL_TOPICS = [
     "AI Revolution in Civil Engineering 2026",
@@ -31,37 +30,54 @@ def get_random_topic():
     return random.choice(CIVIL_TOPICS)
 
 def generate_script(topic):
-    prompt = f"""Professional Civil Engineering YouTube Shorts creator.
+    """Pehle Gemini try karega, agar quota khatam ho to fallback"""
+    try:
+        print("🤖 Gemini se script generate kar raha hoon...")
+        prompt = f"""Professional Civil Engineering YouTube Shorts creator.
 Topic: {topic}
 
 Return ONLY valid JSON:
 {{
   "title": "Catchy title under 65 chars",
-  "description": "Full description + emojis + hashtags #CivilEngineering #Construction",
+  "description": "Full description + emojis + hashtags #CivilEngineering",
   "tags": ["CivilEngineering", "Construction"],
   "scenes": [
-    {{"text": "Energetic narration line", "duration": 7, "visual_prompt": "Civil engineering construction scene"}}
+    {{"text": "Energetic narration line", "duration": 7, "visual_prompt": "Civil engineering scene"}}
   ]
 }}"""
-    model = genai.GenerativeModel('gemini-2.0-flash')
-    response = model.generate_content(prompt)
-    text = response.text.strip()
-    if text.startswith("```json"): 
-        text = text[7:-3].strip()
-    return json.loads(text)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```json"): 
+            text = text[7:-3].strip()
+        script = json.loads(text)
+        print("✅ Gemini se script ban gaya!")
+        return script
+    except Exception as e:
+        if "quota" in str(e).lower() or "resource_exhausted" in str(e).lower():
+            print("⚠️ Gemini quota khatam hai. Fallback mode on...")
+        else:
+            print("⚠️ Gemini error:", e)
+        
+        # Fallback Script
+        print("📝 Fallback script use kar raha hoon...")
+        return {
+            "title": f"{topic} - Important Facts 🔥",
+            "description": f"{topic} ke baare mein sab kuch ek minute mein. Civil Engineering students ke liye must watch! #CivilEngineering #Construction",
+            "tags": ["CivilEngineering", "Construction", "Trending"],
+            "scenes": [
+                {"text": f"Dosto, aaj baat karte hain {topic} ki!", "duration": 7, "visual_prompt": "construction site"},
+                {"text": "Yeh technology bahut tezi se badal rahi hai.", "duration": 7, "visual_prompt": "modern building"},
+                {"text": "Comment mein apna opinion zaroor batao!", "duration": 6, "visual_prompt": "engineer working"}
+            ]
+        }
 
 def generate_thumbnail(title, topic):
-    prompt = f"""Viral YouTube Shorts thumbnail 1280x720 for Civil Engineering:
-Title: {title}
-Bright colors, construction site, modern building, big bold text"""
-    
-    # Temporary simple thumbnail (image generation model issue ke liye)
-    from PIL import Image, ImageDraw
-    img = Image.new('RGB', (1280, 720), color=(10, 50, 120))
+    img = Image.new('RGB', (1280, 720), color=(0, 70, 130))
     draw = ImageDraw.Draw(img)
-    draw.text((150, 300), title[:60], fill=(255, 255, 255))
+    draw.text((80, 280), title[:55], fill=(255, 255, 255))
     img.save("thumbnail.jpg")
-    print("✅ Thumbnail created!")
+    print("✅ Thumbnail ban gaya!")
     return "thumbnail.jpg"
 
 async def text_to_speech(text):
@@ -71,25 +87,11 @@ async def text_to_speech(text):
 def create_video(scenes):
     video_clips = []
     audio_clips = []
-
     for i, scene in enumerate(scenes):
         asyncio.run(text_to_speech(scene['text']))
         audio = AudioFileClip("voice.mp3").set_duration(scene.get('duration', 7))
         audio_clips.append(audio)
-
-        try:
-            # Hugging Face AI video clip
-            video_bytes = hf_client.text_to_video(
-                prompt=scene['visual_prompt'] + ", realistic civil engineering construction site",
-                model="zai-org/CogVideoX-5b"
-            )
-            with open(f"clip_{i}.mp4", "wb") as f:
-                f.write(video_bytes)
-            clip = VideoFileClip(f"clip_{i}.mp4").subclip(0, 7)
-            video_clips.append(clip)
-        except Exception as e:
-            print("HF clip failed, using black clip:", e)
-            video_clips.append(ColorClip(size=(1280, 720), color=(0,0,0), duration=7))
+        video_clips.append(ColorClip(size=(1280, 720), color=(0,0,0), duration=scene.get('duration', 7)))
 
     final_video = concatenate_videoclips(video_clips, method="compose")
     final_audio = concatenate_audioclips(audio_clips)
@@ -136,12 +138,12 @@ def upload_to_youtube(video_file, title, description, tags, thumbnail_file):
         youtube.thumbnails().set(videoId=response['id'], media_body=thumb_media).execute()
         print("✅ Thumbnail set ho gaya!")
 
-    print(f"🎉 Video uploaded! ID: {response['id']}")
+    print(f"🎉 Video uploaded successfully! ID: {response['id']}")
 
 # ===================== MAIN =====================
 if __name__ == "__main__":
     topic = os.getenv("VIDEO_TOPIC", get_random_topic())
-    print(f"🚀 Civil Engineering Video ban raha hai: {topic}")
+    print(f"🚀 Starting Civil Engineering Shorts: {topic}")
 
     script = generate_script(topic)
     thumbnail_file = generate_thumbnail(script["title"], topic)
@@ -154,4 +156,4 @@ if __name__ == "__main__":
         script["tags"],
         thumbnail_file
     )
-    print("✅ Sab complete! Video YouTube pe upload ho gaya.")
+    print("✅ Process complete!")
