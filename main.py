@@ -12,7 +12,6 @@ from google.auth.transport.requests import Request
 import pickle
 from PIL import Image, ImageDraw
 
-# ===================== CONFIG =====================
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 CIVIL_TOPICS = [
@@ -30,36 +29,24 @@ def get_random_topic():
 
 def generate_script(topic):
     try:
-        print("🤖 Gemini se script generate kar raha hoon...")
-        prompt = f"""Professional Civil Engineering YouTube Shorts creator.
-Topic: {topic}
-
-Return ONLY valid JSON:
-{{
-  "title": "Catchy title under 65 chars",
-  "description": "Full description + emojis + hashtags #CivilEngineering",
-  "tags": ["CivilEngineering", "Construction"],
-  "scenes": [
-    {{"text": "Energetic narration line", "duration": 7}}
-  ]
-}}"""
+        print("🤖 Gemini try kar raha hoon...")
+        prompt = f"""Professional Civil Engineering Shorts on {topic}.
+Return ONLY JSON with title, description, tags, scenes."""
         model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(prompt)
         text = response.text.strip()
         if text.startswith("```json"): text = text[7:-3].strip()
-        script = json.loads(text)
-        print("✅ Gemini se script ban gaya!")
-        return script
+        return json.loads(text)
     except:
-        print("⚠️ Gemini quota khatam → Fallback mode")
+        print("⚠️ Gemini quota khatam → Fallback")
         return {
             "title": f"{topic} - Important Facts 🔥",
-            "description": f"{topic} ke baare mein sab kuch. Civil Engineering ke liye must watch! #CivilEngineering",
+            "description": f"{topic} ke baare mein sab kuch. Must watch for Civil Engineers! #CivilEngineering",
             "tags": ["CivilEngineering", "Construction"],
             "scenes": [
                 {"text": f"Dosto, aaj baat karte hain {topic} ki!", "duration": 7},
                 {"text": "Yeh technology bahut tezi se badal rahi hai.", "duration": 7},
-                {"text": "Comment mein apna opinion zaroor batao!", "duration": 6}
+                {"text": "Comment mein apna opinion batao!", "duration": 6}
             ]
         }
 
@@ -106,19 +93,15 @@ def get_youtube_service():
             creds = pickle.load(f)
 
     if not creds or not creds.valid:
-        print("🔄 YouTube token refresh kar raha hoon...")
-        try:
-            creds = Credentials(
-                None,
-                refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
-                token_uri="https://oauth2.googleapis.com/token",
-                scopes=SCOPES
-            )
-            creds.refresh(Request())
-            print("✅ Token refresh successful!")
-        except Exception as e:
-            print("❌ Token refresh failed:", str(e))
-            raise
+        print("🔄 Refreshing YouTube token...")
+        creds = Credentials(
+            None,
+            refresh_token=os.getenv("YOUTUBE_REFRESH_TOKEN"),
+            token_uri="https://oauth2.googleapis.com/token",
+            scopes=SCOPES
+        )
+        creds.refresh(Request())
+        print("✅ Token refresh successful!")
 
         with open("token.pickle", "wb") as f:
             pickle.dump(creds, f)
@@ -138,13 +121,13 @@ def upload_to_youtube(video_file, title, description, tags, thumbnail_file):
     if os.path.exists(thumbnail_file):
         thumb_media = MediaFileUpload(thumbnail_file, mimetype='image/jpeg')
         youtube.thumbnails().set(videoId=response['id'], media_body=thumb_media).execute()
-        print("✅ Thumbnail set ho gaya!")
+        print("✅ Thumbnail set!")
 
-    print(f"🎉 Video uploaded successfully! Video ID: {response['id']}")
+    print(f"🎉 Video uploaded! ID: {response['id']}")
 
 if __name__ == "__main__":
     topic = os.getenv("VIDEO_TOPIC", get_random_topic())
-    print(f"🚀 Starting Civil Engineering Shorts: {topic}")
+    print(f"🚀 Starting: {topic}")
 
     script = generate_script(topic)
     thumbnail_file = generate_thumbnail(script["title"])
@@ -157,4 +140,4 @@ if __name__ == "__main__":
         script["tags"],
         thumbnail_file
     )
-    print("✅ Sab complete!")
+    print("✅ Sab complete!") 
