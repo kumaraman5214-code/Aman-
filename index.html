@@ -2,17 +2,16 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TalkZone Pro</title>
+<title>TalkZone Stable</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
 <style>
 body{margin:0;background:#0d1117;color:#fff;font-family:sans-serif}
 .app{display:flex;height:100vh}
-.sidebar{width:300px;background:#161b22;overflow:auto}
+.sidebar{width:280px;background:#161b22;overflow:auto}
 .chat{flex:1;display:flex;flex-direction:column}
 
 .user{padding:10px;border-bottom:1px solid #222;cursor:pointer}
@@ -39,15 +38,23 @@ button{background:#2ea043;color:#fff}
 <button onclick="login()">Login</button>
 </div>
 
+<!-- APP -->
 <div id="app" class="app" style="display:none">
 
-<div class="sidebar" id="chatList"></div>
+<div class="sidebar">
+<input id="search" placeholder="Search user">
+<div id="users"></div>
+</div>
 
 <div class="chat">
-<div class="top" id="chatTop"></div>
+<div class="top" id="chatName">Select user</div>
+
 <div id="msgs" style="flex:1;overflow:auto"></div>
+
+<div style="display:flex">
 <input id="m" placeholder="message">
 <button onclick="send()">Send</button>
+</div>
 </div>
 
 </div>
@@ -56,31 +63,43 @@ button{background:#2ea043;color:#fff}
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
-  projectId: "talkzone-b3488",
-  databaseURL:"https://talkzone-b3488-default-rtdb.firebaseio.com"
+  projectId: "talkzone-b3488"
 };
 
 firebase.initializeApp(firebaseConfig);
 
-const auth=firebase.auth();
-const db=firebase.firestore();
-const rtdb=firebase.database();
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-let ME=null,currentChat=null,otherUID=null;
+let ME=null;
+let currentChat=null;
+let otherUser=null;
 
-// 🔥 LOGIN (FIXED)
+// ❌ AUTO LOGIN FIX
+window.onload = ()=> auth.signOut();
+
+// ✅ LOGIN (FINAL FIX)
 async function login(){
+
 let u=uEl.value.trim().toLowerCase();
 let p=pEl.value;
+
+if(u.length<3 || p.length<6){
+  alert("Invalid");
+  return;
+}
+
 let email=u+"@chat.com";
 
 try{
+
 await auth.signInWithEmailAndPassword(email,p);
+
 }catch(e){
 
 if(e.code==="auth/user-not-found"){
 
-// UNIQUE USERNAME LOCK
+// username unique
 let check=await db.collection("users").where("name","==",u).get();
 if(!check.empty){
 alert("Username already taken ❌");
@@ -90,14 +109,20 @@ return;
 let cred=await auth.createUserWithEmailAndPassword(email,p);
 
 await db.collection("users").doc(cred.user.uid).set({
-name:u,uid:cred.user.uid
+name:u,
+uid:cred.user.uid
 });
 
 }else if(e.code==="auth/wrong-password"){
 alert("Wrong password ❌");
 return;
+}else{
+alert(e.message);
+return;
 }
+
 }
+
 }
 
 // AUTH
@@ -106,81 +131,74 @@ if(user){
 ME=user;
 login.style.display="none";
 app.style.display="flex";
-setOnline();
-loadChats();
+loadUsers();
 }
 });
 
-// 🔥 ONLINE + LAST SEEN
-function setOnline(){
-let ref=rtdb.ref("status/"+ME.uid);
-
-ref.set({state:"online",time:Date.now()});
-
-ref.onDisconnect().set({state:"offline",time:Date.now()});
-}
-
-// LOAD CHATS
-function loadChats(){
-db.collection("chats")
-.where("members","array-contains",ME.uid)
-.onSnapshot(snap=>{
-chatList.innerHTML="";
+// LOAD USERS
+function loadUsers(){
+db.collection("users").onSnapshot(snap=>{
+users.innerHTML="";
 
 snap.forEach(doc=>{
-let c=doc.data();
-let other=c.members.find(x=>x!==ME.uid);
-
-db.collection("users").doc(other).get().then(uDoc=>{
-let u=uDoc.data();
+let u=doc.data();
+if(u.uid===ME.uid) return;
 
 let div=document.createElement("div");
 div.className="user";
-div.innerHTML=`
-<b>${u.name}</b><br>
-${c.lastMsg||""}
-${c.unread?.[ME.uid]?"🔴":""}
-`;
+div.innerText=u.name;
 
-div.onclick=()=>openChat(doc.id,u.uid,u.name);
+div.onclick=()=>openChat(u);
 
-chatList.appendChild(div);
-});
+users.appendChild(div);
 });
 });
 }
+
+// SEARCH
+search.oninput=()=>{
+let val=search.value.toLowerCase();
+
+db.collection("users").get().then(snap=>{
+users.innerHTML="";
+
+snap.forEach(doc=>{
+let u=doc.data();
+if(u.uid===ME.uid) return;
+
+if(u.name.includes(val)){
+let div=document.createElement("div");
+div.className="user";
+div.innerText=u.name;
+
+div.onclick=()=>openChat(u);
+
+users.appendChild(div);
+}
+});
+});
+};
 
 // OPEN CHAT
-function openChat(id,uid,name){
-currentChat=id;
-otherUID=uid;
+function openChat(user){
 
-chatTop.innerText=name;
+otherUser=user;
+currentChat=[ME.uid,user.uid].sort().join("_");
+
+chatName.innerText=user.name;
 
 loadMessages();
-listenStatus();
-}
-
-// 🔥 LAST SEEN
-function listenStatus(){
-rtdb.ref("status/"+otherUID).on("value",snap=>{
-let d=snap.val();
-if(!d)return;
-
-if(d.state==="online"){
-chatTop.innerText+=" (online)";
-}else{
-chatTop.innerText+=` (last seen ${new Date(d.time).toLocaleTimeString()})`;
-}
-});
 }
 
 // LOAD MESSAGES
 function loadMessages(){
-db.collection("chats").doc(currentChat)
+
+db.collection("chats")
+.doc(currentChat)
 .collection("messages")
 .orderBy("time")
 .onSnapshot(snap=>{
+
 msgs.innerHTML="";
 
 snap.forEach(doc=>{
@@ -188,79 +206,39 @@ let m=doc.data();
 
 let div=document.createElement("div");
 div.className="msg "+(m.uid===ME.uid?"me":"other");
-
-let tick=m.uid===ME.uid?(m.seen?"✔✔":"✔"):"";
-
-div.innerHTML=`
-${m.text} ${tick}
-`;
-
-div.onclick=()=>{
-if(confirm("Delete for everyone?")){
-doc.ref.delete();
-}
-};
+div.innerText=m.text;
 
 msgs.appendChild(div);
 });
 
 msgs.scrollTop=msgs.scrollHeight;
+
 });
+
 }
 
 // SEND
 function send(){
+
+if(!currentChat){
+alert("Select user");
+return;
+}
+
 let text=m.value;
-if(!text)return;
+if(!text) return;
 
-let ref=db.collection("chats").doc(currentChat);
-
-ref.collection("messages").add({
+db.collection("chats")
+.doc(currentChat)
+.collection("messages")
+.add({
 text:text,
 uid:ME.uid,
-time:Date.now(),
-seen:false
+time:Date.now()
 });
-
-ref.set({
-members:[ME.uid,otherUID],
-lastMsg:text,
-lastTime:Date.now(),
-unread:{[otherUID]:firebase.firestore.FieldValue.increment(1)}
-},{merge:true});
 
 m.value="";
 }
-
-// 🔥 SEEN SYSTEM
-setInterval(()=>{
-if(!currentChat)return;
-
-db.collection("chats").doc(currentChat)
-.collection("messages")
-.where("uid","!=",ME.uid)
-.get().then(snap=>{
-snap.forEach(d=>d.ref.update({seen:true}));
-});
-},2000);
-
-// 🔥 TYPING
-m.addEventListener("input",()=>{
-rtdb.ref("typing/"+currentChat+"/"+ME.uid).set(true);
-
-setTimeout(()=>{
-rtdb.ref("typing/"+currentChat+"/"+ME.uid).set(false);
-},1000);
-});
-
-rtdb.ref("typing/"+currentChat).on("value",snap=>{
-let data=snap.val();
-if(!data)return;
-
-if(data[otherUID]){
-chatTop.innerText="typing...";
-}
-});
 
 </script>
 
