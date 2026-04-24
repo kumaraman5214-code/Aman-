@@ -7,8 +7,8 @@
 
 <h2>TalkZone Chat</h2>
 
-<input id="user" placeholder="Username">
-<input id="pass" type="password" placeholder="Password">
+<input id="user" placeholder="username">
+<input id="pass" type="password" placeholder="password">
 <button onclick="login()">Login</button>
 
 <hr>
@@ -18,88 +18,57 @@
 
 <div id="chat"></div>
 
-<script type="module">
+<!-- Firebase CDN -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-// ✅ FIREBASE SDK (FULL)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// ✅ YOUR CONFIG (same as yours)
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
   projectId: "talkzone-b3488",
-  storageBucket: "talkzone-b3488.firebasestorage.app",
-  messagingSenderId: "526945974843",
-  appId: "1:526945974843:web:997fb419c944ae9c1fba1e"
 };
 
-// ✅ INIT
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-let currentUser = "";
+function login() {
+  const email = document.getElementById("user").value + "@test.com";
+  const pass = document.getElementById("pass").value;
 
-// ✅ LOGIN + AUTO SIGNUP
-window.login = async function() {
-  const u = document.getElementById("user").value.trim();
-  const p = document.getElementById("pass").value.trim();
-
-  if (!u || !p) {
-    alert("Fill all fields");
-    return;
-  }
-
-  const email = u + "@chat.com";
-
-  try {
-    await signInWithEmailAndPassword(auth, email, p);
-    currentUser = u;
-    alert("Login success");
-    loadMessages();
-  } catch {
-    try {
-      await createUserWithEmailAndPassword(auth, email, p);
-      currentUser = u;
-      alert("Account created");
-      loadMessages();
-    } catch (e) {
-      alert(e.message);
-    }
-  }
-};
-
-// ✅ SEND MESSAGE
-window.sendMsg = async function() {
-  const text = document.getElementById("msg").value.trim();
-
-  if (!text) return;
-
-  await addDoc(collection(db, "messages"), {
-    user: currentUser,
-    text: text,
-    time: serverTimestamp()
-  });
-
-  document.getElementById("msg").value = "";
-};
-
-// ✅ REALTIME CHAT
-function loadMessages() {
-  const q = query(collection(db, "messages"), orderBy("time"));
-
-  onSnapshot(q, (snapshot) => {
-    let html = "";
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      html += `<p><b>${d.user}:</b> ${d.text}</p>`;
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(() => alert("Login success"))
+    .catch(() => {
+      auth.createUserWithEmailAndPassword(email, pass)
+        .then(() => alert("Account created"))
+        .catch(err => alert(err.message));
     });
-    document.getElementById("chat").innerHTML = html;
+}
+
+function sendMsg() {
+  const msg = document.getElementById("msg").value;
+  const user = auth.currentUser.email;
+
+  db.collection("messages").add({
+    text: msg,
+    user: user,
+    time: new Date()
   });
 }
 
+db.collection("messages")
+  .orderBy("time")
+  .onSnapshot(snapshot => {
+    const chat = document.getElementById("chat");
+    chat.innerHTML = "";
+
+    snapshot.forEach(doc => {
+      const m = doc.data();
+      chat.innerHTML += `<p><b>${m.user}:</b> ${m.text}</p>`;
+    });
+  });
 </script>
 
 </body>
