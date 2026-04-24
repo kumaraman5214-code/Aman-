@@ -1,59 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalkZone</title>
 
-<!-- ✅ Firebase (defer fix) -->
-<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <style>
-body{margin:0;font-family:sans-serif;background:#0d1117;color:#fff}
-#loginSc,#appSc{display:none;height:100vh;align-items:center;justify-content:center}
-#loginSc{display:flex}
-input{padding:10px;margin:5px;width:200px}
-button{padding:10px;margin:5px;cursor:pointer}
-.sidebar{width:200px;background:#111;height:100vh;overflow:auto}
-.chat{flex:1;display:flex;flex-direction:column}
-.msg{margin:5px;padding:8px;border-radius:8px}
-.sent{background:#0b4a2e;align-self:flex-end}
+body{font-family:sans-serif;background:#111;color:#fff;margin:0}
+#loginSc,#appSc{display:none;padding:20px}
+input{display:block;margin:10px 0;padding:10px;width:200px}
+button{padding:10px;background:#25d366;border:none;color:#fff;cursor:pointer}
+.user{padding:10px;border-bottom:1px solid #333;cursor:pointer}
+.msg{padding:5px;margin:5px;border-radius:10px}
+.sent{background:#0b4a2e;text-align:right}
 .recv{background:#222}
 </style>
 </head>
+
 <body>
 
 <div id="loginSc">
-  <div>
-    <h2>TalkZone</h2>
-    <input id="u" placeholder="username"><br>
-    <input id="p" type="password" placeholder="password"><br>
-    <button id="loginBtn">Login / Signup</button>
-  </div>
+  <h2>Login / Signup</h2>
+  <input id="u" placeholder="username">
+  <input id="p" type="password" placeholder="password">
+  <button id="loginBtn">Continue</button>
 </div>
 
-<div id="appSc" style="display:none;flex-direction:row">
-  <div class="sidebar">
-    <h3 id="myName"></h3>
-    <button onclick="auth.signOut()">Logout</button>
-    <div id="list"></div>
-  </div>
-
-  <div class="chat">
-    <div id="chatName">Select user</div>
-    <div id="msgs" style="flex:1;overflow:auto"></div>
-    <div>
-      <input id="m" placeholder="message">
-      <button id="sendBtn">Send</button>
-    </div>
-  </div>
+<div id="appSc">
+  <h3 id="myName"></h3>
+  <button onclick="auth.signOut()">Logout</button>
+  <hr>
+  <div id="users"></div>
+  <hr>
+  <div id="chat"></div>
+  <input id="msg">
+  <button id="sendBtn">Send</button>
 </div>
 
 <script>
-window.addEventListener("load", () => {
-
+// FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
@@ -66,147 +54,122 @@ const db = firebase.firestore();
 
 const $ = id => document.getElementById(id);
 
-// 🔥 AUTH STATE
-auth.onAuthStateChanged(async user => {
-  if (user) {
-    loginSc.style.display = "none";
-    appSc.style.display = "flex";
+let currentChat = null;
 
-    const doc = await db.collection("users").doc(user.uid).get();
-    if(doc.exists) myName.textContent = doc.data().name;
-
+// AUTH STATE
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    loginSc.style.display="none";
+    appSc.style.display="block";
+    myName.innerText=user.email.split("@")[0];
     loadUsers();
-
-  } else {
-    loginSc.style.display = "flex";
-    appSc.style.display = "none";
+  }else{
+    loginSc.style.display="block";
+    appSc.style.display="none";
   }
 });
 
-// 🔥 LOGIN / SIGNUP (FIXED)
-loginBtn.onclick = async () => {
-
+// LOGIN / SIGNUP FIXED
+loginBtn.onclick = async ()=>{
   const username = u.value.trim().toLowerCase();
   const password = p.value.trim();
 
-  if (!username || password.length < 6) {
+  if(!username || password.length<6){
     alert("Min 6 password");
     return;
   }
 
-  const email = username + "@tz.com";
+  const email = username+"@tz.com";
 
-  try {
-    // LOGIN TRY
-    await auth.signInWithEmailAndPassword(email, password);
+  try{
+    await auth.signInWithEmailAndPassword(email,password);
+    alert("Login success ✅");
 
-  } catch (e) {
+  }catch(e){
 
-    if (e.code === "auth/user-not-found") {
+    // 👉 अगर user नहीं मिला → create करो
+    if(e.code==="auth/user-not-found" || e.code==="auth/invalid-credential"){
 
-      // CHECK USERNAME EXISTS
-      const snap = await db.collection("users")
-        .where("name","==",username).get();
+      try{
+        const res = await auth.createUserWithEmailAndPassword(email,password);
 
-      if (!snap.empty) {
-        alert("Username already taken ❌");
-        return;
+        await db.collection("users").doc(res.user.uid).set({
+          uid: res.user.uid,
+          name: username
+        });
+
+        alert("Account created ✅");
+
+      }catch(err){
+
+        if(err.code==="auth/email-already-in-use"){
+          alert("Wrong password ❌");
+        }else{
+          alert(err.message);
+        }
       }
 
-      // SIGNUP
-      const res = await auth.createUserWithEmailAndPassword(email, password);
-
-      await db.collection("users").doc(res.user.uid).set({
-        uid: res.user.uid,
-        name: username
-      });
-
-      alert("Account created ✅");
-
-    } else if (e.code === "auth/wrong-password") {
-
+    }else if(e.code==="auth/wrong-password"){
       alert("Wrong password ❌");
-
-    } else if (e.code === "auth/invalid-credential") {
-
-      alert("Reset needed → delete users in Firebase");
-
-    } else {
+    }else{
       alert(e.message);
     }
   }
 };
 
-// 🔥 LOAD USERS
-function loadUsers() {
-  db.collection("users").onSnapshot(snap => {
+// LOAD USERS
+function loadUsers(){
+  db.collection("users").onSnapshot(snap=>{
+    users.innerHTML="";
+    snap.forEach(doc=>{
+      const u=doc.data();
+      if(u.uid===auth.currentUser.uid) return;
 
-    list.innerHTML = "";
+      const div=document.createElement("div");
+      div.className="user";
+      div.innerText=u.name;
 
-    snap.forEach(doc => {
-      const u = doc.data();
-      if (u.uid === auth.currentUser.uid) return;
-
-      const div = document.createElement("div");
-      div.innerText = u.name;
-      div.style.cursor = "pointer";
-
-      div.onclick = () => openChat(u);
-
-      list.appendChild(div);
+      div.onclick=()=>openChat(u);
+      users.appendChild(div);
     });
-
   });
 }
 
-// 🔥 CHAT
-function openChat(user) {
+// OPEN CHAT
+function openChat(user){
+  chat.innerHTML="";
+  const my=auth.currentUser.uid;
 
-  chatName.textContent = user.name;
+  currentChat = my<user.uid ? my+"_"+user.uid : user.uid+"_"+my;
 
-  const cid = auth.currentUser.uid < user.uid
-    ? auth.currentUser.uid + "_" + user.uid
-    : user.uid + "_" + auth.currentUser.uid;
-
-  db.collection("chats").doc(cid)
-    .collection("messages")
-    .orderBy("time")
-    .onSnapshot(snap => {
-
-      msgs.innerHTML = "";
-
-      snap.forEach(doc => {
-        const m = doc.data();
-
-        const div = document.createElement("div");
-        div.className = "msg " +
-          (m.from === auth.currentUser.uid ? "sent" : "recv");
-
-        div.innerText = m.text;
-
-        msgs.appendChild(div);
-      });
-
-      msgs.scrollTop = msgs.scrollHeight;
+  db.collection("chats").doc(currentChat).collection("messages")
+  .orderBy("time")
+  .onSnapshot(snap=>{
+    chat.innerHTML="";
+    snap.forEach(d=>{
+      const m=d.data();
+      const div=document.createElement("div");
+      div.className="msg "+(m.from===my?"sent":"recv");
+      div.innerText=m.text;
+      chat.appendChild(div);
     });
-
-  sendBtn.onclick = () => {
-    const text = m.value.trim();
-    if (!text) return;
-
-    db.collection("chats").doc(cid)
-      .collection("messages")
-      .add({
-        text,
-        from: auth.currentUser.uid,
-        time: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-    m.value = "";
-  };
+  });
 }
 
-});
+// SEND MESSAGE
+sendBtn.onclick=()=>{
+  const text=msg.value.trim();
+  if(!text || !currentChat) return;
+
+  db.collection("chats").doc(currentChat).collection("messages").add({
+    text,
+    from:auth.currentUser.uid,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  msg.value="";
+};
 </script>
+
 </body>
-</html>
+  </html>
