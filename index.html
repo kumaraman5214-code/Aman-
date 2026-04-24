@@ -1,26 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TalkZone</title>
+<title>TalkZone Pro</title>
 
 <style>
+:root{
+  --bg:#0d1117;
+  --card:#161b22;
+  --border:#30363d;
+  --accent:#2ea043;
+  --text:#e6edf3;
+  --sub:#8b949e;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
 body{
-  margin:0;
+  background:var(--bg);
+  color:var(--text);
   font-family:sans-serif;
-  background:#0d1117;
-  color:#e6edf3;
 }
 
-.container{
-  max-width:500px;
-  margin:auto;
-  padding:15px;
+/* LOGIN */
+#login{
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
-h2{
+.card{
+  width:100%;
+  max-width:380px;
+  background:var(--card);
+  padding:30px;
+  border-radius:16px;
+  border:1px solid var(--border);
+}
+
+.card h2{
   text-align:center;
-  margin-bottom:10px;
+  margin-bottom:20px;
 }
 
 input{
@@ -28,217 +50,212 @@ input{
   padding:12px;
   margin-top:10px;
   border-radius:8px;
-  border:1px solid #30363d;
-  background:#161b22;
+  border:1px solid var(--border);
+  background:#0d1117;
   color:white;
 }
 
 button{
   width:100%;
   padding:12px;
-  margin-top:10px;
+  margin-top:12px;
   border:none;
   border-radius:8px;
-  background:#2ea043;
+  background:var(--accent);
   color:white;
   font-weight:600;
 }
 
+/* APP */
+#app{
+  display:none;
+  height:100vh;
+  display:flex;
+}
+
+/* SIDEBAR */
+.sidebar{
+  width:280px;
+  background:var(--card);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+}
+
+.header{
+  padding:15px;
+  border-bottom:1px solid var(--border);
+  font-weight:600;
+}
+
+.users{
+  flex:1;
+  overflow:auto;
+}
+
 .user{
-  padding:10px;
-  border-bottom:1px solid #30363d;
+  padding:12px;
+  border-bottom:1px solid var(--border);
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
 
 .user:hover{
-  background:#161b22;
+  background:#0d1117;
 }
 
-.chat{
-  height:300px;
-  overflow:auto;
-  border:1px solid #30363d;
-  padding:10px;
-  margin-top:10px;
-  border-radius:8px;
+.avatar{
+  width:35px;
+  height:35px;
+  border-radius:50%;
+  background:var(--accent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:bold;
 }
 
-.me{
-  text-align:right;
-  color:#2ea043;
-  margin:5px 0;
+.name{
+  font-size:14px;
 }
 
-.them{
-  text-align:left;
-  color:#58a6ff;
-  margin:5px 0;
+/* MAIN AREA */
+.main{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--sub);
 }
 
-.admin{
-  background:#f85149;
-}
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<!-- LOGIN -->
+<div id="login">
+  <div class="card">
+    <h2>💬 TalkZone</h2>
+    <input id="u" placeholder="Username">
+    <input id="p" type="password" placeholder="Password">
+    <button onclick="login()">Login / Signup</button>
+  </div>
+</div>
 
-<h2>💬 TalkZone</h2>
+<!-- APP -->
+<div id="app">
 
-<input id="user" placeholder="Username">
-<input id="pass" type="password" placeholder="Password">
-<button onclick="login()">Login / Signup</button>
+  <div class="sidebar">
+    <div class="header">Users</div>
+    <div class="users" id="list"></div>
+  </div>
 
-<hr>
-
-<h3>Users</h3>
-<div id="users"></div>
-
-<hr>
-
-<h3 id="chatWith">Select user</h3>
-<div id="chatBox" class="chat"></div>
-
-<input id="msg" placeholder="Type message">
-<button onclick="sendMsg()">Send</button>
-
-<br><br>
-<button onclick="deleteAll()">🧨 Delete All (Admin)</button>
+  <div class="main">
+    Select a user to start chat
+  </div>
 
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword }
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, getDocs, deleteDoc }
+import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, serverTimestamp }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
-  authDomain: "talkzone-b3488.firebaseapp.com",
-  projectId: "talkzone-b3488"
+  apiKey:"AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
+  authDomain:"talkzone-b3488.firebaseapp.com",
+  projectId:"talkzone-b3488"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let me=null;
-let isAdmin=false;
-let currentChat=null;
+let ME=null;
 
-// 🔐 encode / decode
-function enc(t){ return btoa(t); }
-function dec(t){ return atob(t); }
-
-// 🔐 LOGIN
+/* LOGIN */
 window.login = async ()=>{
-  let u=user.value.trim();
-  let p=pass.value.trim();
+  const u=document.getElementById("u").value.trim();
+  const p=document.getElementById("p").value.trim();
 
-  if(!u||!p) return alert("Enter details");
+  if(!u||!p){alert("Enter details");return;}
 
-  let email=u+"@chat.com";
+  const email=u.toLowerCase()+"@chat.com";
 
   try{
-    let res=await signInWithEmailAndPassword(auth,email,p);
-    me=res.user.uid;
-  }catch{
-    let res=await createUserWithEmailAndPassword(auth,email,p);
-    me=res.user.uid;
+    let cred;
+
+    try{
+      cred = await signInWithEmailAndPassword(auth,email,p);
+    }catch(e){
+
+      const q=query(collection(db,'users'),where('name','==',u));
+      const snap=await getDocs(q);
+
+      if(!snap.empty){
+        alert("Username exists");
+        return;
+      }
+
+      cred = await createUserWithEmailAndPassword(auth,email,p);
+
+      await setDoc(doc(db,'users',cred.user.uid),{
+        name:u,
+        uid:cred.user.uid,
+        z:false,
+        created:serverTimestamp()
+      });
+    }
+
+  }catch(err){
+    console.log(err);
+    alert("Error");
   }
-
-  // save user
-  await setDoc(doc(db,"users",me),{name:u});
-
-  // 🔥 admin check
-  const snap=await getDoc(doc(db,"users",me));
-  isAdmin = snap.data()?.z === true;
-
-  console.log("Admin:", isAdmin);
-
-  loadUsers();
 };
 
-// USERS
-function loadUsers(){
-  onSnapshot(collection(db,"users"),snap=>{
-    users.innerHTML="";
-    snap.forEach(d=>{
-      if(d.id===me) return;
+/* AUTH STATE */
+onAuthStateChanged(auth, async user=>{
+  if(user){
+    ME=user;
 
+    document.getElementById("login").style.display="none";
+    document.getElementById("app").style.display="flex";
+
+    loadUsers();
+  }
+});
+
+/* LOAD USERS */
+function loadUsers(){
+  onSnapshot(collection(db,'users'),snap=>{
+    const list=document.getElementById("list");
+    list.innerHTML="";
+
+    snap.forEach(d=>{
       const data=d.data();
 
-      users.innerHTML+=`
-      <div class="user" onclick="openChat('${d.id}','${data.name}')">
-      ${data.name}
-      </div>`;
+      if(data.uid===ME.uid) return;
+
+      const div=document.createElement("div");
+      div.className="user";
+
+      div.innerHTML=`
+        <div class="avatar">${data.name[0].toUpperCase()}</div>
+        <div class="name">${data.name}</div>
+      `;
+
+      list.appendChild(div);
     });
   });
 }
-
-// CHAT ID
-function chatId(a,b){
-  return a<b?a+"_"+b:b+"_"+a;
-}
-
-// OPEN CHAT
-window.openChat=(uid,name)=>{
-  currentChat=chatId(me,uid);
-  chatWith.innerText="Chat with "+name;
-
-  onSnapshot(collection(db,"chats",currentChat,"messages"),snap=>{
-    chatBox.innerHTML="";
-
-    snap.forEach(d=>{
-      let m=d.data();
-
-      let text = m.text ? dec(m.text) : "";
-
-      chatBox.innerHTML+=`
-      <div class="${m.sender===me?'me':'them'}">
-      ${text}
-      </div>`;
-    });
-
-    chatBox.scrollTop=chatBox.scrollHeight;
-  });
-};
-
-// SEND
-window.sendMsg=async ()=>{
-  if(!currentChat) return alert("Select user");
-
-  let text=msg.value.trim();
-  if(!text) return;
-
-  await addDoc(collection(db,"chats",currentChat,"messages"),{
-    text:enc(text),
-    sender:me,
-    time:new Date()
-  });
-
-  msg.value="";
-};
-
-// ADMIN DELETE
-window.deleteAll=async ()=>{
-  if(!isAdmin) return alert("No access");
-
-  const chats=await getDocs(collection(db,"chats"));
-
-  chats.forEach(async c=>{
-    const msgs=await getDocs(collection(db,"chats",c.id,"messages"));
-    msgs.forEach(m=>deleteDoc(m.ref));
-  });
-
-  alert("All chats deleted");
-};
 
 </script>
+
 </body>
 </html>
