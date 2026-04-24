@@ -1,46 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>TalkZone</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalkZone Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
-<body style="font-family:sans-serif; padding:20px;">
+<body style="font-family:sans-serif">
 
 <h2>💬 TalkZone</h2>
 
-<!-- LOGIN -->
-<input id="user" placeholder="Username"><br><br>
-<input id="pass" type="password" placeholder="Password"><br><br>
-<button onclick="login()">Login / Signup</button>
+<input id="user" placeholder="Username">
+<input id="pass" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
 
 <hr>
 
-<!-- CHAT -->
+<h3>Users</h3>
+<div id="users"></div>
+
+<hr>
+
+<h3 id="chatWith">Select user</h3>
+<div id="chatBox" style="height:300px;overflow:auto;border:1px solid #ccc;"></div>
+
 <input id="msg" placeholder="Type message">
 <button onclick="sendMsg()">Send</button>
 
-<div id="chat" style="margin-top:20px;"></div>
+<br><br>
 
-<hr>
-
-<!-- ADMIN -->
-<input id="adminCode" placeholder="Admin Secret">
-<button onclick="adminLogin()">Admin Login</button>
-
-<div id="adminPanel" style="display:none; margin-top:10px;">
-  <h3>👑 Admin Panel</h3>
-  <button onclick="deleteAll()">Delete All Messages</button>
-</div>
+<button id="x9btn" onclick="wipeAll()" style="display:none">
+⚙️ Sync
+</button>
 
 <script type="module">
 
-// 🔥 FIREBASE SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, getDoc, doc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// 🔥 CONFIG (already correct)
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
@@ -51,101 +48,142 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser = null;
+let me = null;
+let mode = 0;
+let currentChat = null;
 
-// 🔐 LOGIN SYSTEM
+// LOGIN
 window.login = async () => {
-  const u = document.getElementById("user").value.trim();
-  const p = document.getElementById("pass").value.trim();
+
+  let u = user.value.trim();
+  let p = pass.value.trim();
 
   if(!u || !p){
     alert("Enter username & password");
     return;
   }
 
-  const email = u + "@chat.com";
+  let email = u + "@chat.com";
 
-  try {
-    const res = await signInWithEmailAndPassword(auth, email, p);
-    currentUser = res.user.email;
-    alert("Login success");
-  } catch (e) {
-    const res = await createUserWithEmailAndPassword(auth, email, p);
-    currentUser = res.user.email;
-    alert("Account created");
+  try{
+    let res = await signInWithEmailAndPassword(auth,email,p);
+    me = res.user.uid;
+  }catch{
+    let res = await createUserWithEmailAndPassword(auth,email,p);
+    me = res.user.uid;
   }
+
+  // save user
+  await setDoc(doc(db,"users",me),{
+    name: u
+  });
+
+  // 🔐 hidden level check
+  const snap = await getDoc(doc(db,"users",me));
+  const data = snap.data();
+
+  if(data.lvl === 9){
+    mode = 9;
+    document.getElementById("x9btn").style.display = "block";
+    console.log("mode9");
+  }
+
+  loadUsers();
 };
 
-// 📤 SEND MESSAGE
-window.sendMsg = async () => {
-  const msg = document.getElementById("msg").value;
+// LOAD USERS
+function loadUsers(){
 
-  if(!msg || !currentUser){
-    alert("Login first");
-    return;
-  }
+  onSnapshot(collection(db,"users"), snap=>{
 
-  await addDoc(collection(db, "messages"), {
-    user: currentUser,
-    text: msg,
+    users.innerHTML = "";
+
+    snap.forEach(d=>{
+
+      const data = d.data();
+
+      // 👻 hide special user
+      if(data.lvl === 9) return;
+
+      if(d.id === me) return;
+
+      users.innerHTML += `
+      <div onclick="openChat('${d.id}','${data.name}')"
+      style="padding:6px;border-bottom:1px solid #ccc;cursor:pointer">
+      ${data.name}
+      </div>`;
+
+    });
+
+  });
+
+}
+
+// CHAT ID
+function chatId(a,b){
+  return a < b ? a+"_"+b : b+"_"+a;
+}
+
+// OPEN CHAT
+window.openChat = (uid,name)=>{
+
+  currentChat = chatId(me,uid);
+  chatWith.innerText = "Chat with " + name;
+
+  onSnapshot(collection(db,"chats",currentChat,"messages"), snap=>{
+
+    chatBox.innerHTML = "";
+
+    snap.forEach(d=>{
+
+      const m = d.data();
+
+      if(m.sender === me){
+        chatBox.innerHTML += `<div style="text-align:right;color:green">You: ${m.text}</div>`;
+      } else {
+        chatBox.innerHTML += `<div style="color:blue">${name}: ${m.text}</div>`;
+      }
+
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+  });
+
+};
+
+// SEND MESSAGE
+window.sendMsg = async ()=>{
+
+  if(!currentChat) return alert("Select user");
+
+  let text = msg.value.trim();
+  if(!text) return;
+
+  await addDoc(collection(db,"chats",currentChat,"messages"),{
+    sender: me,
+    text: text,
     time: new Date()
   });
 
-  document.getElementById("msg").value = "";
+  msg.value = "";
+
 };
 
-// 💬 REALTIME CHAT
-onSnapshot(collection(db, "messages"), snap => {
-  const chat = document.getElementById("chat");
-  chat.innerHTML = "";
+// ⚙️ hidden control
+window.wipeAll = async ()=>{
 
-  snap.forEach(doc => {
-    const m = doc.data();
+  if(mode !== 9) return;
 
-    const name = m.user.split("@")[0];
+  const chats = await getDocs(collection(db,"chats"));
 
-    if(m.user === currentUser){
-      chat.innerHTML += `<div style="text-align:right;color:green;">
-        You: ${m.text}
-      </div>`;
-    } else {
-      chat.innerHTML += `<div style="text-align:left;color:blue;">
-        ${name}: ${m.text}
-      </div>`;
-    }
+  chats.forEach(async c=>{
+    const msgs = await getDocs(collection(db,"chats",c.id,"messages"));
+    msgs.forEach(m=>deleteDoc(m.ref));
   });
 
-  chat.scrollTop = chat.scrollHeight;
-});
+  alert("done");
 
-// 👑 ADMIN LOGIN
-window.adminLogin = async () => {
-  const input = document.getElementById("adminCode").value;
-
-  const snap = await getDoc(doc(db, "config", "admin"));
-
-  if(!snap.exists()){
-    alert("Admin config missing");
-    return;
-  }
-
-  const realCode = snap.data().code;
-
-  if(input === realCode){
-    document.getElementById("adminPanel").style.display = "block";
-    alert("Admin Mode ON");
-  } else {
-    alert("Wrong code");
-  }
-};
-
-// 🧨 DELETE ALL MESSAGES (ADMIN)
-window.deleteAll = async () => {
-  const snap = await getDocs(collection(db, "messages"));
-
-  snap.forEach(d => deleteDoc(d.ref));
-
-  alert("All messages deleted");
 };
 
 </script>
