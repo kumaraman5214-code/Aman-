@@ -23,13 +23,11 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
-/* ── LOADING ── */
 #loadSc{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:9999;transition:opacity .4s}
 .loader{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 .load-brand{font-size:26px;font-weight:700;letter-spacing:-.5px}
 .load-brand span{color:var(--accent)}
 
-/* ── LOGIN ── */
 #loginSc{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}
 #loginSc::before{content:'';position:absolute;width:500px;height:500px;background:radial-gradient(circle,rgba(46,160,67,.05) 0%,transparent 70%);top:-80px;left:50%;transform:translateX(-50%);pointer-events:none}
 .lcard{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:44px 38px;width:100%;max-width:390px;box-shadow:var(--shadow);animation:fadeIn .4s ease;position:relative;z-index:1}
@@ -49,10 +47,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .lbtn:hover{background:#3fb950}.lbtn:active{transform:scale(.99)}.lbtn:disabled{opacity:.6;cursor:not-allowed}
 .lnote{text-align:center;font-size:12px;color:var(--text3);margin-top:14px}
 
-/* ── APP ── */
 #appSc{display:none;height:100vh;width:100vw;flex-direction:row;overflow:hidden}
-
-/* ── SIDEBAR ── */
 .sb{width:330px;min-width:330px;height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .3s ease}
 .sb-top{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
 .myprof{display:flex;align-items:center;gap:11px;flex:1;min-width:0}
@@ -84,7 +79,6 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .bchip{font-size:10px;background:rgba(248,81,73,.15);color:var(--danger);border:1px solid rgba(248,81,73,.25);padding:1px 6px;border-radius:99px}
 .ubadge{background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;min-width:18px;text-align:center}
 
-/* ── ADMIN CONTROL PANEL (obfuscated) ── */
 #q7{display:none;border-top:1px solid var(--border);flex-direction:column;max-height:240px}
 #q7.vis{display:flex}
 .qhd{padding:8px 14px 4px;font-size:11px;font-weight:700;color:var(--warning);text-transform:uppercase;letter-spacing:1.5px;display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -100,7 +94,6 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .qb-del{background:#6e40c9;color:#fff}
 .qb-msg{background:var(--accent2);color:#fff}
 
-/* ── CHAT AREA ── */
 .ca{flex:1;display:flex;flex-direction:column;height:100vh;background:var(--bg);min-width:0}
 .nochat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text2)}
 .nc-icon{width:80px;height:80px;background:var(--surface);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;border:1px solid var(--border)}
@@ -141,11 +134,9 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .sbtn:hover{background:#3fb950}
 .sbtn:active{transform:scale(.93)}
 
-/* ── TOAST ── */
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--surface2);border:1px solid var(--border);padding:10px 20px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:all .3s;z-index:9998;box-shadow:var(--shadow);white-space:nowrap;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* ── CONFIRM MODAL ── */
 .mbg{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(6px);padding:18px}
 .mbg.open{display:flex}
 .mbox{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 24px;width:100%;max-width:360px;box-shadow:var(--shadow);animation:pop .25s ease}
@@ -156,7 +147,6 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .mb-c{background:var(--surface2);color:var(--text)}
 .mb-danger{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
 
-/* ── MOBILE ── */
 .backbtn{display:none;background:transparent;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:3px;line-height:1;flex-shrink:0}
 @media(max-width:660px){
   .sb{position:fixed;left:0;top:0;bottom:0;z-index:200;width:100vw;min-width:unset}
@@ -170,13 +160,11 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 </head>
 <body>
 
-<!-- LOADING -->
 <div id="loadSc">
   <div class="load-brand">Talk<span>Zone</span></div>
   <div class="loader"></div>
 </div>
 
-<!-- LOGIN -->
 <div id="loginSc">
   <div class="lcard">
     <div class="brand">
@@ -198,9 +186,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   </div>
 </div>
 
-<!-- APP -->
 <div id="appSc">
-  <!-- SIDEBAR -->
   <div class="sb" id="sb">
     <div class="sb-top">
       <div class="myprof">
@@ -218,15 +204,12 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
     </div>
     <div class="slbl">People</div>
     <div class="ulist" id="ulist"></div>
-
-    <!-- ADMIN PANEL — id obfuscated, no "admin" text in DOM -->
     <div id="q7">
       <div class="qhd">⚙ Control <span class="qbd">RESTRICTED</span></div>
       <div class="qlist" id="q7L"></div>
     </div>
   </div>
 
-  <!-- CHAT AREA -->
   <div class="ca" id="ca">
     <div class="nochat" id="nchat">
       <div class="nc-icon">💬</div>
@@ -268,71 +251,176 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 </div>
 
 <script type="module">
-import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         signOut, onAuthStateChanged }
-                           from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, addDoc, collection, onSnapshot,
-         query, where, orderBy, updateDoc, deleteDoc, getDocs, serverTimestamp }
-                           from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp as rtTs }
-                           from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, getDocs, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDatabase, ref, set, onDisconnect, serverTimestamp as rtTs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-/* ══════════════════════════════════════
-   FIREBASE CONFIG — apna config yahan
-══════════════════════════════════════ */
 const FC = {
-  apiKey:            "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
-  authDomain:        "talkzone-b3488.firebaseapp.com",
-  databaseURL:       "https://talkzone-b3488-default-rtdb.firebaseio.com",
-  projectId:         "talkzone-b3488",
-  storageBucket:     "talkzone-b3488.firebasestorage.app",
-  messagingSenderId: "526945974843",
-  appId:             "1:526945974843:web:997fb419c944ae9c1fba1e"
+  apiKey: "PASTE_API_KEY",
+  authDomain: "PASTE_AUTH_DOMAIN",
+  databaseURL: "PASTE_DATABASE_URL",
+  projectId: "PASTE_PROJECT_ID",
+  storageBucket: "PASTE_STORAGE_BUCKET",
+  messagingSenderId: "PASTE_SENDER_ID",
+  appId: "PASTE_APP_ID"
 };
 
-const fbApp = initializeApp(FC);   // ✅ "fbApp" — not "app" to avoid DOM id conflict
-const auth  = getAuth(fbApp);
-const db    = getFirestore(fbApp);
-const rt    = getDatabase(fbApp);
+const fbApp = initializeApp(FC);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+const rt = getDatabase(fbApp);
 
-/* ══════════════════════════════════════
-   STATE
-══════════════════════════════════════ */
-let ME     = null;   // Firebase Auth user
-let MED    = null;   // Firestore user doc data
-let PRIV   = false;  // Admin privilege — set ONLY after server-side check via _p collection
-let SUID   = null;   // Selected chat user uid
-let SNM    = null;   // Selected chat user name
-let mUnsub = null;   // Message listener unsubscribe
-let uUnsub = null;   // Users listener unsubscribe
-let ALLU   = {};     // uid → user data cache
-let BLOCKED= new Set();
-let typT   = null;
+let ME = null;
+let MED = null;
+let authDone = false;
+let _toastT = null;
 
-const $  = id => document.getElementById(id);
-const cid = (a,b) => a < b ? a+'_'+b : b+'_'+a;
+const $ = id => document.getElementById(id);
 
-/* ══════════════════════════════════════
-   HELPERS
-══════════════════════════════════════ */
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
-function sc(s){  // deterministic avatar color from string
-  let h=0; for(let i=0;i<s.length;i++) h=s.charCodeAt(i)+((h<<5)-h);
-  return ['#2ea043','#58a6ff','#6e40c9','#e3b341','#f0883e','#388bfd','#db6d28'][Math.abs(h)%7];
-}
-function ini(n){ n=(n||'?').trim(); const p=n.split(' '); return p.length>1?(p[0][0]+p[1][0]).toUpperCase():n.slice(0,2).toUpperCase() }
-function av(name,sz='sm'){ return `<div class="av av-${sz}" style="background:${sc(name)}">${ini(name)}</div>` }
-function ft(ts){ if(!ts) return ''; const d=ts.toDate?ts.toDate():new Date(ts); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) }
-function fd(ts){
-  if(!ts) return '';
-  const d=ts.toDate?ts.toDate():new Date(ts), n=new Date();
-  if(d.toDateString()===n.toDateString()) return 'Today';
-  const y=new Date(n); y.setDate(y.getDate()-1);
-  if(d.toDateString()===y.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString([],{day:'numeric',month:'short'});
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function ini(n){ n = (n || '?').trim(); const p = n.split(' '); return p.length > 1 ? (p[0][0] + p[1][0]).toUpperCase() : n.slice(0,2).toUpperCase(); }
+
+function toast(m,d=2500){
+  const t = $('tst');
+  t.textContent = m;
+  t.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => t.classList.remove('show'), d);
 }
 
-let _toastT;
-function toast(m,d=2700){
-  const t=$('tst'); t.textCont
+function showOnly(screen){
+  $('loadSc').style.display = 'none';
+  $('loginSc').style.display = 'none';
+  $('appSc').style.display = 'none';
+  screen.style.display = 'flex';
+}
+
+function sanitizeUsername(v){
+  return String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/s+/g, '');
+}
+
+function usernameToEmail(username){
+  return `${username}@talkzone.local`;
+}
+
+function setMyAvatar(text){
+  const el = $('myAv');
+  el.innerHTML = `<div class="av-dot"></div>`;
+  el.style.background = '#2ea043';
+  el.firstChild && (el.firstChild.textContent = '');
+  el.setAttribute('data-ini', text);
+  el.textContent = ini(text);
+}
+
+async function getUserByUsername(username){
+  const q = query(collection(db, 'users'), where('username', '==', username));
+  const snap = await getDocs(q);
+  return snap.empty ? null : snap.docs[0];
+}
+
+async function saveUserDoc(user, username){
+  const data = {
+    uid: user.uid,
+    username,
+    name: username,
+    email: user.email,
+    updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp()
+  };
+  await setDoc(doc(db, 'users', user.uid), data, { merge: true });
+  return data;
+}
+
+async function markOnline(user){
+  try {
+    const r = ref(rt, `status/${user.uid}`);
+    await set(r, { state: 'online', at: rtTs() });
+    onDisconnect(r).set({ state: 'offline', at: rtTs() });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function initUI(){
+  const name = MED?.name || MED?.username || ME?.email || 'User';
+  $('myN').textContent = name;
+  setMyAvatar(name);
+  showOnly($('appSc'));
+}
+
+async function loginOrSignup(){
+  const username = sanitizeUsername($('iu').value);
+  const password = $('ip').value;
+
+  if (username.length < 3) return toast('Username kam se kam 3 characters ka ho.');
+  if (password.length < 6) return toast('Password kam se kam 6 characters ka ho.');
+
+  $('lbtn').disabled = true;
+  $('lbtn').textContent = 'Please wait...';
+
+  try {
+    const existing = await getUserByUsername(username);
+
+    if (existing) {
+      const email = existing.data().email;
+      await signInWithEmailAndPassword(auth, email, password);
+      toast('Login successful');
+    } else {
+      const email = usernameToEmail(username);
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await saveUserDoc(cred.user, username);
+      toast('Account created');
+    }
+  } catch (e) {
+    console.error(e);
+    toast(e.code || e.message || 'Login failed');
+  } finally {
+    $('lbtn').disabled = false;
+    $('lbtn').textContent = 'Login / Sign Up';
+  }
+}
+
+onAuthStateChanged(auth, async (user) => {
+  authDone = true;
+  try {
+    if (user) {
+      ME = user;
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      MED = snap.exists() ? snap.data() : { username: user.email?.split('@')[0] || 'User', name: user.email?.split('@')[0] || 'User' };
+      await markOnline(user);
+      initUI();
+    } else {
+      showOnly($('loginSc'));
+    }
+  } catch (e) {
+    console.error(e);
+    showOnly($('loginSc'));
+  }
+});
+
+setTimeout(() => {
+  if (!authDone) showOnly($('loginSc'));
+}, 9000);
+
+$('lbtn').addEventListener('click', loginOrSignup);
+
+$('iu').addEventListener('keydown', e => { if (e.key === 'Enter') $('ip').focus(); });
+$('ip').addEventListener('keydown', e => { if (e.key === 'Enter') loginOrSignup(); });
+
+$('logBt').addEventListener('click', async () => {
+  try { await signOut(auth); } catch(e){ console.error(e); }
+  showOnly($('loginSc'));
+});
+
+window.addEventListener('error', (e) => {
+  console.error(e.error || e.message);
+  showOnly($('loginSc'));
+  toast('Script error check console');
+});
+</script>
+</body>
+</html>
