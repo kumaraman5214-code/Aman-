@@ -2,106 +2,58 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalkZone</title>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- ✅ Firebase (defer fix) -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ── CSS RESET & STYLES ── */
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-:root{
-  --bg:#0d1117; --sb:#111820; --card:#161b22; --card2:#1c2128;
-  --border:#21262d; --green:#25d366; --green-d:#128c7e;
-  --green-msg:#0b4a2e; --blue:#58a6ff; --red:#f85149;
-  --txt:#e6edf3; --txt2:#8b949e; --txt3:#484f58; --online:#25d366;
-}
-html,body{height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);font-size:15px}
-
-/* ── ANIMATIONS ── */
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ── LOADING ── */
-#loadSc{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:9999;transition:opacity 0.35s}
-.ld-logo{font-size:30px;font-weight:700;letter-spacing:-1px}
-.ld-logo em{color:var(--green);font-style:normal}
-.ld-spin{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.75s linear infinite}
-
-/* ── LOGIN ── */
-#loginSc{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}
-.login-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:380px;animation:fadeUp 0.4s ease}
-.lc-field{margin-bottom:15px}
-.lc-field label{display:block;font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:7px}
-.lc-field input{width:100%;padding:12px;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;color:var(--txt);outline:none}
-.lc-btn{width:100%;padding:13px;background:var(--green);border:none;border-radius:10px;color:#fff;font-weight:600;cursor:pointer}
-
-/* ── APP LAYOUT ── */
-#appSc{display:none;height:100vh;width:100vw;flex-direction:row;overflow:hidden}
-.sidebar{width:340px;min-width:340px;background:var(--sb);border-right:1px solid var(--border);display:flex;flex-direction:column}
-.sb-head{padding:15px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.sb-list{flex:1;overflow-y:auto}
-.sb-user{padding:12px 15px;cursor:pointer;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.03)}
-.sb-user:hover{background:var(--card2)}
-
-.chat-area{flex:1;display:flex;flex-direction:column;background:var(--bg)}
-.no-chat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--txt2)}
-.chat-head{padding:15px;border-bottom:1px solid var(--border);background:var(--sb)}
-.msgs-wrap{flex:1;padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
-.msg-row{display:flex}
-.msg-row.sent{justify-content:flex-end}
-.msg-bub{max-width:70%;padding:10px 14px;border-radius:15px;font-size:14px}
-.msg-row.sent .msg-bub{background:var(--green-msg)}
-.msg-row.recv .msg-bub{background:var(--card)}
-
-.inp-area{padding:10px;border-top:1px solid var(--border);display:flex;gap:10px;background:var(--sb)}
-.msg-input{flex:1;padding:12px;background:var(--card2);border:1px solid var(--border);border-radius:25px;color:var(--txt);outline:none}
-.send-btn{width:45px;height:45px;background:var(--green);border:none;border-radius:50%;color:#fff;cursor:pointer}
-
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;padding:10px 20px;border-radius:20px;opacity:0;transition:0.3s;z-index:9999}
-.toast.show{opacity:1}
+body{margin:0;font-family:sans-serif;background:#0d1117;color:#fff}
+#loginSc,#appSc{display:none;height:100vh;align-items:center;justify-content:center}
+#loginSc{display:flex}
+input{padding:10px;margin:5px;width:200px}
+button{padding:10px;margin:5px;cursor:pointer}
+.sidebar{width:200px;background:#111;height:100vh;overflow:auto}
+.chat{flex:1;display:flex;flex-direction:column}
+.msg{margin:5px;padding:8px;border-radius:8px}
+.sent{background:#0b4a2e;align-self:flex-end}
+.recv{background:#222}
 </style>
 </head>
 <body>
 
-<div id="loadSc"><div class="ld-logo">Talk<em>Zone</em></div><div class="ld-spin"></div></div>
-
 <div id="loginSc">
-  <div class="login-card">
-    <h2 style="margin-bottom:20px">Login / Signup</h2>
-    <div class="lc-field"><label>USERNAME</label><input type="text" id="u" placeholder="e.g. aman"></div>
-    <div class="lc-field"><label>PASSWORD</label><input type="password" id="p" placeholder="min 6 chars"></div>
-    <button class="lc-btn" id="loginBtn">Continue</button>
+  <div>
+    <h2>TalkZone</h2>
+    <input id="u" placeholder="username"><br>
+    <input id="p" type="password" placeholder="password"><br>
+    <button id="loginBtn">Login / Signup</button>
   </div>
 </div>
 
-<div id="appSc">
+<div id="appSc" style="display:none;flex-direction:row">
   <div class="sidebar">
-    <div class="sb-head">
-      <div><strong id="myName">User</strong></div>
-      <button onclick="auth.signOut()" style="background:none;border:1px solid var(--border);color:var(--txt2);padding:5px 10px;border-radius:5px;cursor:pointer">Logout</button>
-    </div>
-    <div class="sb-list" id="list"></div>
+    <h3 id="myName"></h3>
+    <button onclick="auth.signOut()">Logout</button>
+    <div id="list"></div>
   </div>
-  <div class="chat-area">
-    <div id="noChat" class="no-chat"><h3>Select a chat to start</h3></div>
-    <div id="chatView" style="display:none;flex:1;flex-direction:column;height:100%">
-      <div class="chat-head"><strong id="chatName">-</strong></div>
-      <div class="msgs-wrap" id="msgs"></div>
-      <div class="inp-area">
-        <input class="msg-input" id="m" placeholder="Type a message...">
-        <button class="send-btn" id="sendBtn">➤</button>
-      </div>
+
+  <div class="chat">
+    <div id="chatName">Select user</div>
+    <div id="msgs" style="flex:1;overflow:auto"></div>
+    <div>
+      <input id="m" placeholder="message">
+      <button id="sendBtn">Send</button>
     </div>
   </div>
 </div>
-
-<div class="toast" id="toastEl"></div>
 
 <script>
+window.addEventListener("load", () => {
+
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
@@ -111,118 +63,150 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+
 const $ = id => document.getElementById(id);
 
-function toast(msg) {
-  $('toastEl').textContent = msg;
-  $('toastEl').classList.add('show');
-  setTimeout(() => $('toastEl').classList.remove('show'), 3000);
-}
-
-// ── AUTH OBSERVER ──
+// 🔥 AUTH STATE
 auth.onAuthStateChanged(async user => {
-  $('loadSc').style.display = 'none';
   if (user) {
-    $('loginSc').style.display = 'none';
-    $('appSc').style.display = 'flex';
-    const doc = await db.collection('users').doc(user.uid).get();
-    if(doc.exists) $('myName').textContent = doc.data().name;
+    loginSc.style.display = "none";
+    appSc.style.display = "flex";
+
+    const doc = await db.collection("users").doc(user.uid).get();
+    if(doc.exists) myName.textContent = doc.data().name;
+
     loadUsers();
+
   } else {
-    $('loginSc').style.display = 'flex';
-    $('appSc').style.display = 'none';
+    loginSc.style.display = "flex";
+    appSc.style.display = "none";
   }
 });
 
-// ── LOGIN / SIGNUP LOGIC (FIXED) ──
-$('loginBtn').onclick = async () => {
-  const u = $('u').value.trim().toLowerCase();
-  const p = $('p').value.trim();
+// 🔥 LOGIN / SIGNUP (FIXED)
+loginBtn.onclick = async () => {
 
-  if (!u || p.length < 6) return toast("Username/Password (min 6) required");
-  const email = `${u}@talkzone.app`;
+  const username = u.value.trim().toLowerCase();
+  const password = p.value.trim();
+
+  if (!username || password.length < 6) {
+    alert("Min 6 password");
+    return;
+  }
+
+  const email = username + "@tz.com";
 
   try {
-    // Attempt Login
-    await auth.signInWithEmailAndPassword(email, p);
-    toast("Welcome back! ✅");
+    // LOGIN TRY
+    await auth.signInWithEmailAndPassword(email, password);
+
   } catch (e) {
-    // New Firebase error 'invalid-credential' covers both user-not-found and wrong-password
-    if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found') {
-      
-      // Check Firestore if username is already taken
-      const userCheck = await db.collection('users').where('name', '==', u).get();
-      
-      if (userCheck.empty) {
-        // Auto-Signup if user doesn't exist
-        try {
-          const res = await auth.createUserWithEmailAndPassword(email, p);
-          await db.collection('users').doc(res.user.uid).set({
-            uid: res.user.uid,
-            name: u,
-            status: 'online'
-          });
-          toast("Account Created! ✅");
-        } catch (err) { toast(err.message); }
-      } else {
-        // If user exists in Firestore but login failed, it's a Wrong Password
-        toast("Incorrect password for this username ❌");
+
+    if (e.code === "auth/user-not-found") {
+
+      // CHECK USERNAME EXISTS
+      const snap = await db.collection("users")
+        .where("name","==",username).get();
+
+      if (!snap.empty) {
+        alert("Username already taken ❌");
+        return;
       }
+
+      // SIGNUP
+      const res = await auth.createUserWithEmailAndPassword(email, password);
+
+      await db.collection("users").doc(res.user.uid).set({
+        uid: res.user.uid,
+        name: username
+      });
+
+      alert("Account created ✅");
+
+    } else if (e.code === "auth/wrong-password") {
+
+      alert("Wrong password ❌");
+
+    } else if (e.code === "auth/invalid-credential") {
+
+      alert("Reset needed → delete users in Firebase");
+
     } else {
-      toast(e.message);
+      alert(e.message);
     }
   }
 };
 
+// 🔥 LOAD USERS
 function loadUsers() {
-  db.collection('users').onSnapshot(snap => {
-    $('list').innerHTML = '';
+  db.collection("users").onSnapshot(snap => {
+
+    list.innerHTML = "";
+
     snap.forEach(doc => {
       const u = doc.data();
       if (u.uid === auth.currentUser.uid) return;
-      const el = document.createElement('div');
-      el.className = 'sb-user';
-      el.innerHTML = `<strong>${u.name}</strong>`;
-      el.onclick = () => openChat(u);
-      $('list').appendChild(el);
+
+      const div = document.createElement("div");
+      div.innerText = u.name;
+      div.style.cursor = "pointer";
+
+      div.onclick = () => openChat(u);
+
+      list.appendChild(div);
     });
+
   });
 }
 
+// 🔥 CHAT
 function openChat(user) {
-  $('noChat').style.display = 'none';
-  $('chatView').style.display = 'flex';
-  $('chatName').textContent = user.name;
-  
-  const cid = auth.currentUser.uid < user.uid ? 
-              `${auth.currentUser.uid}_${user.uid}` : 
-              `${user.uid}_${auth.currentUser.uid}`;
 
-  db.collection('chats').doc(cid).collection('messages')
-    .orderBy('time', 'asc')
+  chatName.textContent = user.name;
+
+  const cid = auth.currentUser.uid < user.uid
+    ? auth.currentUser.uid + "_" + user.uid
+    : user.uid + "_" + auth.currentUser.uid;
+
+  db.collection("chats").doc(cid)
+    .collection("messages")
+    .orderBy("time")
     .onSnapshot(snap => {
-      $('msgs').innerHTML = '';
+
+      msgs.innerHTML = "";
+
       snap.forEach(doc => {
         const m = doc.data();
-        const div = document.createElement('div');
-        div.className = `msg-row ${m.from === auth.currentUser.uid ? 'sent' : 'recv'}`;
-        div.innerHTML = `<div class="msg-bub">${m.text}</div>`;
-        $('msgs').appendChild(div);
+
+        const div = document.createElement("div");
+        div.className = "msg " +
+          (m.from === auth.currentUser.uid ? "sent" : "recv");
+
+        div.innerText = m.text;
+
+        msgs.appendChild(div);
       });
-      $('msgs').scrollTop = $('msgs').scrollHeight;
+
+      msgs.scrollTop = msgs.scrollHeight;
     });
 
-  $('sendBtn').onclick = () => {
-    const txt = $('m').value.trim();
-    if (!txt) return;
-    db.collection('chats').doc(cid).collection('messages').add({
-      text: txt,
-      from: auth.currentUser.uid,
-      time: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    $('m').value = '';
+  sendBtn.onclick = () => {
+    const text = m.value.trim();
+    if (!text) return;
+
+    db.collection("chats").doc(cid)
+      .collection("messages")
+      .add({
+        text,
+        from: auth.currentUser.uid,
+        time: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    m.value = "";
   };
 }
+
+});
 </script>
 </body>
 </html>
