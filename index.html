@@ -12,15 +12,14 @@
   --border:#30363d;
   --accent:#2ea043;
   --text:#e6edf3;
-  --sub:#8b949e;
 }
-*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif}
 
+*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif}
 body{background:var(--bg);color:var(--text);height:100vh}
 
 /* LOGIN */
 #login{
-  position:absolute;
+  position:fixed;
   inset:0;
   display:flex;
   justify-content:center;
@@ -59,9 +58,8 @@ button{
 
 /* APP */
 #app{
-  display:none;
+  display:none; /* ✅ FIXED */
   height:100vh;
-  display:flex;
 }
 
 /* SIDEBAR */
@@ -69,59 +67,32 @@ button{
   width:300px;
   background:var(--panel);
   border-right:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-}
-
-.sb-head{
-  padding:15px;
-  border-bottom:1px solid var(--border);
-  font-weight:bold;
+  height:100%;
+  float:left;
 }
 
 .users{
-  flex:1;
   overflow:auto;
+  height:calc(100vh - 50px);
 }
 
 .user{
   padding:12px;
   border-bottom:1px solid var(--border);
-  cursor:pointer;
-  display:flex;
-  gap:10px;
-  align-items:center;
 }
 
-.user:hover{background:#0d1117}
-
-.avatar{
-  width:35px;height:35px;
-  border-radius:50%;
-  background:var(--accent);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:bold;
-}
-
-/* CHAT AREA */
+/* CHAT */
 .chat{
-  flex:1;
+  margin-left:300px;
+  height:100vh;
   display:flex;
   flex-direction:column;
 }
 
-.chat-head{
-  padding:15px;
-  border-bottom:1px solid var(--border);
-}
-
-.messages{
+.chat-box{
   flex:1;
   padding:15px;
-  overflow:auto;
-  color:var(--sub);
+  color:#888;
 }
 
 .input{
@@ -131,9 +102,6 @@ button{
 
 .input input{
   flex:1;
-  border:none;
-  padding:14px;
-  background:#0d1117;
 }
 
 .input button{
@@ -158,16 +126,12 @@ button{
 <div id="app">
 
   <div class="sidebar">
-    <div class="sb-head">Users</div>
+    <h3 style="padding:10px">Users</h3>
     <div class="users" id="list"></div>
   </div>
 
   <div class="chat">
-    <div class="chat-head">Select user</div>
-    <div class="messages" id="msg">
-      No chat selected
-    </div>
-
+    <div class="chat-box">Select user to chat</div>
     <div class="input">
       <input placeholder="Type message...">
       <button>Send</button>
@@ -181,7 +145,7 @@ button{
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, serverTimestamp }
+import { getFirestore, doc, setDoc, collection, query, where, getDocs, onSnapshot, serverTimestamp }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -237,18 +201,18 @@ window.login = async ()=>{
 };
 
 /* AUTH STATE */
-onAuthStateChanged(auth, async user=>{
+onAuthStateChanged(auth, user=>{
   if(user){
     ME=user;
 
     document.getElementById("login").style.display="none";
-    document.getElementById("app").style.display="flex";
+    document.getElementById("app").style.display="block";
 
     loadUsers();
   }
 });
 
-/* LOAD USERS */
+/* USERS */
 function loadUsers(){
   onSnapshot(collection(db,'users'),snap=>{
     const list=document.getElementById("list");
@@ -261,11 +225,7 @@ function loadUsers(){
 
       const div=document.createElement("div");
       div.className="user";
-
-      div.innerHTML=`
-        <div class="avatar">${data.name[0].toUpperCase()}</div>
-        <div>${data.name}</div>
-      `;
+      div.innerText=data.name;
 
       list.appendChild(div);
     });
