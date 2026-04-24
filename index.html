@@ -2,9 +2,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TalkZone Final</title>
+<title>TalkZone Clean</title>
 
-<!-- ✅ Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -30,8 +29,9 @@ button{background:#2ea043;color:#fff;font-weight:bold}
   <button onclick="login()">Login / Signup</button>
 </div>
 
-<div class="box" id="users" style="display:none">
-  <h3>Select User</h3>
+<div class="box" id="search" style="display:none">
+  <h3>Search User</h3>
+  <input id="searchUser" placeholder="Type username...">
   <div id="list"></div>
 </div>
 
@@ -44,7 +44,7 @@ button{background:#2ea043;color:#fff;font-weight:bold}
 
 <script>
 
-// 🔥 YOUR REAL CONFIG (ALREADY ADDED)
+// ✅ CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
@@ -56,16 +56,24 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-let ME = null;
-let currentChat = null;
+let ME=null;
+let currentChat=null;
+
+// ❌ AUTO LOGIN OFF
+window.onload = ()=> auth.signOut();
 
 // LOGIN
 function login(){
   let u=document.getElementById("u").value.trim().toLowerCase();
   let p=document.getElementById("p").value;
 
-  if(u.length<3||p.length<6){
-    alert("Username 3+ & Password 6+");
+  if(!u || u.length<3){
+    alert("Username 3+ required");
+    return;
+  }
+
+  if(!p || p.length<6){
+    alert("Password 6+ required");
     return;
   }
 
@@ -87,44 +95,49 @@ auth.onAuthStateChanged(user=>{
   if(user){
     ME=user;
     document.getElementById("login").style.display="none";
-    document.getElementById("users").style.display="block";
-    loadUsers();
+    document.getElementById("search").style.display="block";
   }
 });
 
-// USERS
-function loadUsers(){
-  db.collection("users").onSnapshot(snap=>{
+// 🔍 SEARCH USER
+document.getElementById("searchUser").oninput=function(){
+  let val=this.value.toLowerCase();
+
+  db.collection("users").get().then(snap=>{
     let list=document.getElementById("list");
     list.innerHTML="";
 
     snap.forEach(d=>{
-      let data=d.data();
-      if(data.uid===ME.uid) return;
+      let u=d.data();
 
-      let div=document.createElement("div");
-      div.className="user";
-      div.innerText=data.name;
+      if(!u.name) return;
+      if(u.uid===ME.uid) return;
 
-      div.onclick=()=>openChat(data);
+      if(u.name.includes(val)){
+        let div=document.createElement("div");
+        div.className="user";
+        div.innerText=u.name;
 
-      list.appendChild(div);
+        div.onclick=()=>openChat(u);
+
+        list.appendChild(div);
+      }
     });
   });
-}
+};
 
 // OPEN CHAT
 function openChat(user){
   currentChat=[ME.uid,user.uid].sort().join("_");
 
-  document.getElementById("users").style.display="none";
+  document.getElementById("search").style.display="none";
   document.getElementById("chat").style.display="block";
   document.getElementById("chatName").innerText=user.name;
 
   loadMessages();
 }
 
-// MESSAGES
+// LOAD MESSAGES
 function loadMessages(){
   db.collection("chats")
   .doc(currentChat)
