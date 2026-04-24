@@ -2,10 +2,88 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TalkZone Final</title>
+<title>TalkZone</title>
+
+<style>
+body{
+  margin:0;
+  font-family:sans-serif;
+  background:#0d1117;
+  color:#e6edf3;
+}
+
+.container{
+  max-width:500px;
+  margin:auto;
+  padding:15px;
+}
+
+h2{
+  text-align:center;
+  margin-bottom:10px;
+}
+
+input{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border-radius:8px;
+  border:1px solid #30363d;
+  background:#161b22;
+  color:white;
+}
+
+button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border:none;
+  border-radius:8px;
+  background:#2ea043;
+  color:white;
+  font-weight:600;
+}
+
+.user{
+  padding:10px;
+  border-bottom:1px solid #30363d;
+  cursor:pointer;
+}
+
+.user:hover{
+  background:#161b22;
+}
+
+.chat{
+  height:300px;
+  overflow:auto;
+  border:1px solid #30363d;
+  padding:10px;
+  margin-top:10px;
+  border-radius:8px;
+}
+
+.me{
+  text-align:right;
+  color:#2ea043;
+  margin:5px 0;
+}
+
+.them{
+  text-align:left;
+  color:#58a6ff;
+  margin:5px 0;
+}
+
+.admin{
+  background:#f85149;
+}
+</style>
 </head>
 
-<body style="font-family:sans-serif">
+<body>
+
+<div class="container">
 
 <h2>💬 TalkZone</h2>
 
@@ -21,151 +99,140 @@
 <hr>
 
 <h3 id="chatWith">Select user</h3>
-<div id="chatBox" style="height:300px;overflow:auto;border:1px solid #ccc;"></div>
+<div id="chatBox" class="chat"></div>
 
 <input id="msg" placeholder="Type message">
 <button onclick="sendMsg()">Send</button>
 
+<br><br>
+<button onclick="deleteAll()">🧨 Delete All (Admin)</button>
+
+</div>
+
 <script type="module">
 
-// 🔥 FULL FIREBASE SDK IMPORT
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, getDocs, deleteDoc }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// 🔐 FIREBASE CONFIG (अपना डालो)
 const firebaseConfig = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_DOMAIN",
-  projectId: "PASTE_PROJECT_ID"
+  apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
+  authDomain: "talkzone-b3488.firebaseapp.com",
+  projectId: "talkzone-b3488"
 };
 
-// INIT
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 let me=null;
-let isRoot=false;
+let isAdmin=false;
 let currentChat=null;
 
-// 🔐 LOGIN / SIGNUP
+// 🔐 encode / decode
+function enc(t){ return btoa(t); }
+function dec(t){ return atob(t); }
+
+// 🔐 LOGIN
 window.login = async ()=>{
-  const u=user.value.trim();
-  const p=pass.value.trim();
+  let u=user.value.trim();
+  let p=pass.value.trim();
 
   if(!u||!p) return alert("Enter details");
 
-  const email = u + "@chat.com";
+  let email=u+"@chat.com";
 
   try{
-    let res;
-
-    try{
-      res = await signInWithEmailAndPassword(auth,email,p);
-    }catch{
-      res = await createUserWithEmailAndPassword(auth,email,p);
-
-      // 👤 SAVE USER
-      await setDoc(doc(db,"users",res.user.uid),{
-        name:u,
-        z:false
-      });
-    }
-
-    me = res.user.uid;
-
-    // 🔥 HIDDEN ADMIN CHECK
-    const snap = await getDoc(doc(db,"users",me));
-    if(snap.exists()){
-      const data = snap.data();
-      if(data.z === true){
-        isRoot = true;
-        console.log("🔥 Hidden Admin Mode ON");
-      }
-    }
-
-    loadUsers();
-
-  }catch(e){
-    alert("Error");
-    console.log(e);
+    let res=await signInWithEmailAndPassword(auth,email,p);
+    me=res.user.uid;
+  }catch{
+    let res=await createUserWithEmailAndPassword(auth,email,p);
+    me=res.user.uid;
   }
+
+  // save user
+  await setDoc(doc(db,"users",me),{name:u});
+
+  // 🔥 admin check
+  const snap=await getDoc(doc(db,"users",me));
+  isAdmin = snap.data()?.z === true;
+
+  console.log("Admin:", isAdmin);
+
+  loadUsers();
 };
 
-// 👥 LOAD USERS
+// USERS
 function loadUsers(){
-  onSnapshot(collection(db,"users"), snap=>{
+  onSnapshot(collection(db,"users"),snap=>{
     users.innerHTML="";
-
     snap.forEach(d=>{
-      const data=d.data();
-
       if(d.id===me) return;
 
-      // 👻 HIDE ADMIN FROM NORMAL USERS
-      if(data.z===true && !isRoot) return;
+      const data=d.data();
 
-      users.innerHTML += `
-      <div onclick="openChat('${d.id}','${data.name}')" 
-      style="padding:8px;border-bottom:1px solid #ccc;cursor:pointer">
+      users.innerHTML+=`
+      <div class="user" onclick="openChat('${d.id}','${data.name}')">
       ${data.name}
       </div>`;
     });
   });
 }
 
-// 💬 CHAT ID
+// CHAT ID
 function chatId(a,b){
-  return a < b ? a+"_"+b : b+"_"+a;
+  return a<b?a+"_"+b:b+"_"+a;
 }
 
-// 📩 OPEN CHAT
-window.openChat = (uid,name)=>{
-  currentChat = chatId(me,uid);
-  chatWith.innerText = "Chat with " + name;
+// OPEN CHAT
+window.openChat=(uid,name)=>{
+  currentChat=chatId(me,uid);
+  chatWith.innerText="Chat with "+name;
 
-  onSnapshot(collection(db,"chats",currentChat,"messages"), snap=>{
+  onSnapshot(collection(db,"chats",currentChat,"messages"),snap=>{
     chatBox.innerHTML="";
 
     snap.forEach(d=>{
-      const m=d.data();
+      let m=d.data();
 
-      if(m.sender===me){
-        chatBox.innerHTML += `<div style="text-align:right;color:green">You: ${m.text}</div>`;
-      }else{
-        chatBox.innerHTML += `<div style="text-align:left;color:blue">${name}: ${m.text}</div>`;
-      }
+      let text = m.text ? dec(m.text) : "";
+
+      chatBox.innerHTML+=`
+      <div class="${m.sender===me?'me':'them'}">
+      ${text}
+      </div>`;
     });
 
-    chatBox.scrollTop = chatBox.scrollHeight;
+    chatBox.scrollTop=chatBox.scrollHeight;
   });
 };
 
-// 📤 SEND MESSAGE
-window.sendMsg = async ()=>{
+// SEND
+window.sendMsg=async ()=>{
   if(!currentChat) return alert("Select user");
 
-  const text = msg.value.trim();
+  let text=msg.value.trim();
   if(!text) return;
 
   await addDoc(collection(db,"chats",currentChat,"messages"),{
-    sender: me,
-    text: text,
-    time: new Date()
+    text:enc(text),
+    sender:me,
+    time:new Date()
   });
 
   msg.value="";
 };
 
-// 💀 ADMIN DELETE ALL
-window.deleteAll = async ()=>{
-  if(!isRoot) return alert("No access");
+// ADMIN DELETE
+window.deleteAll=async ()=>{
+  if(!isAdmin) return alert("No access");
 
-  const chats = await getDocs(collection(db,"chats"));
+  const chats=await getDocs(collection(db,"chats"));
 
   chats.forEach(async c=>{
-    const msgs = await getDocs(collection(db,"chats",c.id,"messages"));
+    const msgs=await getDocs(collection(db,"chats",c.id,"messages"));
     msgs.forEach(m=>deleteDoc(m.ref));
   });
 
@@ -173,6 +240,5 @@ window.deleteAll = async ()=>{
 };
 
 </script>
-
 </body>
 </html>
