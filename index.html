@@ -16,9 +16,13 @@ input,button{width:100%;padding:10px;margin-top:8px;border:none;border-radius:6p
 input{background:#161b22;color:#fff}
 button{background:#2ea043;color:#fff}
 .user{padding:10px;border-bottom:1px solid #30363d;cursor:pointer}
-.msg{margin:5px 0}
-.me{color:#00ff9d}
-.red{color:red}
+
+.msg{margin:6px 0;padding:8px;border-radius:6px;max-width:70%}
+.me{background:#2ea043;margin-left:auto}
+.other{background:#30363d}
+
+.small{font-size:11px;color:#aaa}
+.red{color:red;font-size:12px}
 </style>
 </head>
 
@@ -33,20 +37,19 @@ button{background:#2ea043;color:#fff}
 
 <div class="box" id="home" style="display:none">
 <button onclick="logout()">Logout</button>
-<button onclick="showNew()">➕ New Chat</button>
+<button onclick="showSearch()">➕ New Chat</button>
 <div id="chatList"></div>
 </div>
 
-<div class="box" id="newChat" style="display:none">
-<button onclick="goHome()">⬅</button>
-<input id="search" placeholder="Search user">
-<div id="users"></div>
+<div class="box" id="search" style="display:none">
+<input id="searchUser" placeholder="Search user">
+<div id="list"></div>
 </div>
 
 <div class="box" id="chat" style="display:none">
 <button onclick="goHome()">⬅</button>
 <h3 id="chatName"></h3>
-<div id="typing"></div>
+<div id="typing" class="small"></div>
 <div id="msgs"></div>
 <input id="m">
 <button onclick="send()">Send</button>
@@ -68,21 +71,24 @@ const rtdb=firebase.database();
 
 let ME=null,currentChat=null,currentUser=null;
 
-// LOGIN
+// LOGIN FIXED
 async function login(){
-let u=uEl.value.trim().toLowerCase().replace(/\s+/g,'');
+let u=uEl.value.trim().toLowerCase();
 let p=pEl.value;
+
 if(u.length<3||p.length<6)return alert("Invalid");
 
 let email=u+"@chat.com";
 
-let q=await db.collection("users").where("name","==",u).get();
-
-if(!q.empty){
+try{
 await auth.signInWithEmailAndPassword(email,p);
-}else{
+}catch(e){
+if(e.code==="auth/user-not-found"){
 let cred=await auth.createUserWithEmailAndPassword(email,p);
 await db.collection("users").doc(cred.user.uid).set({name:u,uid:cred.user.uid});
+}else{
+alert("Wrong password");
+}
 }
 }
 
@@ -94,7 +100,7 @@ auth.onAuthStateChanged(user=>{
 if(user){
 ME=user;
 
-// online
+// online status
 let ref=rtdb.ref("status/"+ME.uid);
 ref.set({state:"online",last:Date.now()});
 ref.onDisconnect().set({state:"offline",last:Date.now()});
@@ -103,23 +109,20 @@ login.style.display="none";
 home.style.display="block";
 
 loadChats();
-}else{
-login.style.display="block";
-home.style.display="none";
 }
 });
 
 function logout(){auth.signOut();}
 
 // NAV
-function showNew(){home.style.display="none";newChat.style.display="block";}
-function goHome(){chat.style.display="none";newChat.style.display="none";home.style.display="block";}
+function showSearch(){home.style.display="none";search.style.display="block";}
+function goHome(){chat.style.display="none";search.style.display="none";home.style.display="block";}
 
-// SEARCH USER
-search.oninput=async function(){
+// SEARCH
+searchUser.oninput=async function(){
 let val=this.value.toLowerCase();
 let snap=await db.collection("users").get();
-users.innerHTML="";
+list.innerHTML="";
 snap.forEach(d=>{
 let u=d.data();
 if(u.uid===ME.uid)return;
@@ -128,7 +131,7 @@ let div=document.createElement("div");
 div.className="user";
 div.innerText=u.name;
 div.onclick=()=>openChat(u);
-users.appendChild(div);
+list.appendChild(div);
 }
 });
 };
@@ -141,8 +144,8 @@ function openChat(u){
 currentUser=u;
 currentChat=chatId(ME.uid,u.uid);
 
+search.style.display="none";
 home.style.display="none";
-newChat.style.display="none";
 chat.style.display="block";
 
 // last seen
@@ -164,10 +167,9 @@ typing.innerText=(data?.typing && data.typing!==ME.uid)?"typing...":"";
 loadMsgs();
 }
 
-// LOAD CHATS
+// LOAD CHAT LIST
 function loadChats(){
-db.collection("chats").orderBy("lastTime","desc")
-.onSnapshot(snap=>{
+db.collection("chats").onSnapshot(snap=>{
 chatList.innerHTML="";
 snap.forEach(doc=>{
 let id=doc.id,data=doc.data();
@@ -175,15 +177,16 @@ if(!id.includes(ME.uid))return;
 
 let other=id.replace(ME.uid,"").replace("_","");
 db.collection("users").doc(other).get().then(u=>{
-let d=u.data(); if(!d)return;
-
+let d=u.data();
 let div=document.createElement("div");
 div.className="user";
+
 div.innerHTML=`
 <b>${d.name}</b><br>
 <small>${data.lastMsg||""}</small>
 ${data.unread?`<span class="red"> 🔴${data.unread}</span>`:""}
 `;
+
 div.onclick=()=>openChat(d);
 chatList.appendChild(div);
 });
@@ -191,7 +194,7 @@ chatList.appendChild(div);
 });
 }
 
-// LOAD MSG
+// LOAD MESSAGES
 function loadMsgs(){
 db.collection("chats").doc(currentChat)
 .collection("messages").orderBy("time")
@@ -212,9 +215,11 @@ del=`<button onclick="delMsg('${doc.id}')">❌</button>`;
 }
 
 let div=document.createElement("div");
-div.className="msg"+(m.uid===ME.uid?" me":"");
+div.className="msg "+(m.uid===ME.uid?"me":"other");
 
-div.innerHTML=m.deleted?"<i>deleted</i>":`${m.text} ${tick} ${del}`;
+div.innerHTML=m.deleted
+? "<i>deleted</i>"
+: `${m.text}<div class="small">${tick} ${del}</div>`;
 
 msgs.appendChild(div);
 
@@ -248,7 +253,7 @@ unread:firebase.firestore.FieldValue.increment(1)
 m.value="";
 }
 
-// typing send
+// typing
 m.oninput=()=>{
 db.collection("chats").doc(currentChat).set({
 typing:ME.uid
