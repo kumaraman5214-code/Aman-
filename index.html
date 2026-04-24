@@ -1,111 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalkZone Pro</title>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <style>
-:root{
-  --bg:#0d1117;
-  --panel:#161b22;
-  --border:#30363d;
-  --accent:#2ea043;
-  --text:#e6edf3;
-}
+body{margin:0;font-family:Inter;background:#0d1117;color:#e6edf3;height:100vh;display:none}
 
-*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif}
-body{background:var(--bg);color:var(--text);height:100vh}
+/* Layout */
+.app{display:flex;height:100vh}
 
-/* LOGIN */
-#login{
-  position:fixed;
-  inset:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-}
-
-.card{
-  width:90%;
-  max-width:380px;
-  background:var(--panel);
-  padding:25px;
-  border-radius:16px;
-  border:1px solid var(--border);
-}
-
-input{
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  border-radius:8px;
-  border:1px solid var(--border);
-  background:#0d1117;
-  color:#fff;
-}
-
-button{
-  width:100%;
-  padding:12px;
-  margin-top:12px;
-  border:none;
-  border-radius:8px;
-  background:var(--accent);
-  color:white;
-  font-weight:600;
-}
-
-/* APP */
-#app{
-  display:none; /* ✅ FIXED */
-  height:100vh;
-}
-
-/* SIDEBAR */
+/* Sidebar */
 .sidebar{
-  width:300px;
-  background:var(--panel);
-  border-right:1px solid var(--border);
-  height:100%;
-  float:left;
+ width:280px;background:#161b22;border-right:1px solid #30363d;
+ display:flex;flex-direction:column
 }
-
-.users{
-  overflow:auto;
-  height:calc(100vh - 50px);
-}
-
+.logo{padding:16px;font-weight:700;font-size:20px}
+.users{flex:1;overflow:auto}
 .user{
-  padding:12px;
-  border-bottom:1px solid var(--border);
+ padding:12px;cursor:pointer;display:flex;gap:10px;align-items:center;
+ transition:.2s
+}
+.user:hover{background:#21262d}
+.avatar{
+ width:36px;height:36px;border-radius:50%;
+ background:#2ea043;display:flex;align-items:center;justify-content:center
 }
 
-/* CHAT */
-.chat{
-  margin-left:300px;
-  height:100vh;
-  display:flex;
-  flex-direction:column;
+/* Chat */
+.chat{flex:1;display:flex;flex-direction:column}
+.top{padding:12px;border-bottom:1px solid #30363d}
+.messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column}
+.msg{max-width:65%;padding:10px;border-radius:12px;margin:5px;font-size:14px}
+.me{background:#2ea043;margin-left:auto}
+.other{background:#21262d}
+
+.input{display:flex;padding:10px;border-top:1px solid #30363d}
+input{flex:1;padding:10px;border:none;border-radius:8px;background:#161b22;color:#fff}
+button{margin-left:5px;padding:10px;border:none;border-radius:8px;background:#2ea043;color:#fff;cursor:pointer}
+
+/* Login */
+.login{
+ position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+ background:#0d1117
+}
+.box{
+ background:#161b22;padding:30px;border-radius:12px;width:320px;text-align:center
 }
 
-.chat-box{
-  flex:1;
-  padding:15px;
-  color:#888;
+/* 👻 Hidden Admin Panel */
+#adminPanel{
+ position:fixed;bottom:20px;right:20px;
+ background:#161b22;border:1px solid #30363d;
+ padding:15px;border-radius:10px;
+ display:none;z-index:999
 }
-
-.input{
-  display:flex;
-  border-top:1px solid var(--border);
-}
-
-.input input{
-  flex:1;
-}
-
-.input button{
-  width:100px;
+#adminPanel button{
+ width:100%;margin-top:5px;background:#f85149
 }
 </style>
 </head>
@@ -113,125 +69,178 @@ button{
 <body>
 
 <!-- LOGIN -->
-<div id="login">
-  <div class="card">
-    <h2>TalkZone</h2>
-    <input id="u" placeholder="Username">
-    <input id="p" type="password" placeholder="Password">
-    <button onclick="login()">Login / Signup</button>
-  </div>
+<div id="login" class="login">
+ <div class="box">
+  <h2>TalkZone</h2>
+  <input id="name" placeholder="Username">
+  <button onclick="login()">Enter</button>
+  <p id="err" style="color:red"></p>
+ </div>
 </div>
 
 <!-- APP -->
-<div id="app">
+<div id="app" class="app" style="display:none">
+ <div class="sidebar">
+  <div class="logo">TalkZone</div>
+  <div id="users" class="users"></div>
+ </div>
 
-  <div class="sidebar">
-    <h3 style="padding:10px">Users</h3>
-    <div class="users" id="list"></div>
+ <div class="chat">
+  <div id="chatTop" class="top">Select user</div>
+  <div id="msgs" class="messages"></div>
+
+  <div class="input">
+   <input id="msg" placeholder="Message...">
+   <button onclick="send()">Send</button>
   </div>
-
-  <div class="chat">
-    <div class="chat-box">Select user to chat</div>
-    <div class="input">
-      <input placeholder="Type message...">
-      <button>Send</button>
-    </div>
-  </div>
-
+ </div>
 </div>
 
-<script type="module">
+<!-- 👻 ADMIN PANEL -->
+<div id="adminPanel">
+ <b>Admin Panel</b><br>
+ <button onclick="banUser()">Ban User</button>
+ <button onclick="deleteChats()">Delete All Chats</button>
+ <button onclick="closeAdmin()">Close</button>
+</div>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged }
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, collection, query, where, getDocs, onSnapshot, serverTimestamp }
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey:"AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
-  authDomain:"talkzone-b3488.firebaseapp.com",
-  projectId:"talkzone-b3488"
+<script>
+const firebaseConfig={
+ apiKey:"AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
+ authDomain:"talkzone-b3488.firebaseapp.com",
+ projectId:"talkzone-b3488"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.firestore();
 
-let ME=null;
+let me=null,chatUser=null,chatId=null,unsub=null,isAdmin=false;
 
 /* LOGIN */
-window.login = async ()=>{
-  const u=document.getElementById("u").value.trim();
-  const p=document.getElementById("p").value.trim();
+async function login(){
+ let n=name.value.trim().toLowerCase();
+ if(n.length<3){err.innerText="min 3";return}
 
-  if(!u||!p){alert("Enter details");return;}
+ let email=n+"@chat.com",pass="123456";
 
-  const email=u.toLowerCase()+"@chat.com";
+ let u;
+ try{u=await auth.signInWithEmailAndPassword(email,pass)}
+ catch{u=await auth.createUserWithEmailAndPassword(email,pass)}
 
-  try{
-    let cred;
+ await db.collection("users").doc(u.user.uid).set({
+  name:n,uid:u.user.uid,z:false,banned:false
+ },{merge:true});
+}
 
-    try{
-      cred = await signInWithEmailAndPassword(auth,email,p);
-    }catch(e){
+/* AUTH */
+auth.onAuthStateChanged(async u=>{
+ if(u){
+  me=u;
+  document.body.style.display="block";
+  login.style.display="none";
+  app.style.display="flex";
 
-      const q=query(collection(db,'users'),where('name','==',u));
-      const snap=await getDocs(q);
+  let d=await db.collection("users").doc(u.uid).get();
+  isAdmin=d.data()?.z===true;
 
-      if(!snap.empty){
-        alert("Username exists");
-        return;
-      }
-
-      cred = await createUserWithEmailAndPassword(auth,email,p);
-
-      await setDoc(doc(db,'users',cred.user.uid),{
-        name:u,
-        uid:cred.user.uid,
-        z:false,
-        created:serverTimestamp()
-      });
-    }
-
-  }catch(err){
-    console.log(err);
-    alert("Error");
-  }
-};
-
-/* AUTH STATE */
-onAuthStateChanged(auth, user=>{
-  if(user){
-    ME=user;
-
-    document.getElementById("login").style.display="none";
-    document.getElementById("app").style.display="block";
-
-    loadUsers();
-  }
+  loadUsers();
+ }
 });
 
 /* USERS */
 function loadUsers(){
-  onSnapshot(collection(db,'users'),snap=>{
-    const list=document.getElementById("list");
-    list.innerHTML="";
+ db.collection("users").where("banned","==",false)
+ .onSnapshot(s=>{
+  users.innerHTML="";
+  s.forEach(d=>{
+   let u=d.data();
+   if(u.uid===me.uid) return;
 
-    snap.forEach(d=>{
-      const data=d.data();
+   let div=document.createElement("div");
+   div.className="user";
+   div.innerHTML=`<div class="avatar">${u.name[0]}</div>${u.name}`;
+   div.onclick=()=>openChat(u);
 
-      if(data.uid===ME.uid) return;
-
-      const div=document.createElement("div");
-      div.className="user";
-      div.innerText=data.name;
-
-      list.appendChild(div);
-    });
+   users.appendChild(div);
   });
+ });
 }
 
+/* CHAT */
+function openChat(u){
+ chatUser=u;
+ chatId=[me.uid,u.uid].sort().join("_");
+ chatTop.innerText=u.name;
+
+ if(unsub) unsub();
+
+ unsub=db.collection("chats/"+chatId+"/messages")
+ .orderBy("t")
+ .onSnapshot(s=>{
+  msgs.innerHTML="";
+  s.forEach(d=>{
+   let m=d.data();
+   let div=document.createElement("div");
+   div.className="msg "+(m.s==me.uid?"me":"other");
+   div.innerText=m.text;
+   msgs.appendChild(div);
+  });
+  msgs.scrollTop=msgs.scrollHeight;
+ });
+}
+
+/* SEND */
+function send(){
+ let t=msg.value.trim();
+ if(!t||!chatId)return;
+
+ db.collection("chats/"+chatId+"/messages").add({
+  text:t,s:me.uid,
+  t:firebase.firestore.FieldValue.serverTimestamp()
+ });
+
+ msg.value="";
+}
+
+/* 👻 SECRET ADMIN OPEN */
+let secret="";
+document.addEventListener("keydown",e=>{
+ secret+=e.key.toLowerCase();
+
+ if(secret.includes("admin123")){
+  if(isAdmin) adminPanel.style.display="block";
+  secret="";
+ }
+ if(secret.length>20) secret="";
+});
+
+/* ADMIN FUNCTIONS */
+async function banUser(){
+ let name=prompt("username?");
+ if(!name) return;
+
+ let q=await db.collection("users").where("name","==",name).get();
+ q.forEach(d=>d.ref.update({banned:true}));
+
+ alert("banned");
+}
+
+async function deleteChats(){
+ if(!confirm("delete all?")) return;
+
+ let chats=await db.collection("chats").get();
+ for(let c of chats.docs){
+  let msgs=await c.ref.collection("messages").get();
+  for(let m of msgs.docs) await m.ref.delete();
+ }
+
+ alert("done");
+}
+
+function closeAdmin(){
+ adminPanel.style.display="none";
+}
 </script>
 
 </body>
