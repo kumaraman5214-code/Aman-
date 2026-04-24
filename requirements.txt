@@ -1,9 +1,0 @@
-google-generativeai==0.8.3
-edge-tts
-requests
-moviepy==1.0.3
-Pillow
-google-api-python-client
-google-auth-oauthlib
-google-auth-httplib2
-huggingface_hub
