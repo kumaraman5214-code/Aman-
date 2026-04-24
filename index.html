@@ -1,129 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>TalkZone</title>
+  <title>TalkZone Chat</title>
 </head>
 <body>
 
 <h2>TalkZone Chat</h2>
 
-<input id="user" placeholder="username">
-<input id="pass" placeholder="password" type="password">
+<input id="user" placeholder="Username">
+<input id="pass" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
 
 <hr>
 
-<div id="users"></div>
-
-<hr>
-
-<div id="chatBox"></div>
-
 <input id="msg" placeholder="message">
-<button onclick="send()">Send</button>
+<button onclick="sendMsg()">Send</button>
+
+<div id="chat"></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, serverTimestamp, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// 🔥 YOUR SDK
+// ✅ FIREBASE SDK (FULL)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ✅ YOUR CONFIG (same as yours)
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
-  databaseURL: "https://talkzone-b3488-default-rtdb.firebaseio.com",
   projectId: "talkzone-b3488",
   storageBucket: "talkzone-b3488.firebasestorage.app",
   messagingSenderId: "526945974843",
   appId: "1:526945974843:web:997fb419c944ae9c1fba1e"
 };
 
+// ✅ INIT
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let me = null;
-let selected = null;
+let currentUser = "";
 
-// LOGIN
-window.login = async () => {
-  const u = user.value;
-  const p = pass.value;
-  const email = u + "@app.com";
+// ✅ LOGIN + AUTO SIGNUP
+window.login = async function() {
+  const u = document.getElementById("user").value.trim();
+  const p = document.getElementById("pass").value.trim();
+
+  if (!u || !p) {
+    alert("Fill all fields");
+    return;
+  }
+
+  const email = u + "@chat.com";
 
   try {
     await signInWithEmailAndPassword(auth, email, p);
+    currentUser = u;
+    alert("Login success");
+    loadMessages();
   } catch {
-    const res = await createUserWithEmailAndPassword(auth, email, p);
-
-    await setDoc(doc(db, "users", res.user.uid), {
-      name: u
-    });
+    try {
+      await createUserWithEmailAndPassword(auth, email, p);
+      currentUser = u;
+      alert("Account created");
+      loadMessages();
+    } catch (e) {
+      alert(e.message);
+    }
   }
 };
 
-// AUTH
-onAuthStateChanged(auth, (u) => {
-  if (!u) return;
-  me = u;
-  loadUsers();
-});
+// ✅ SEND MESSAGE
+window.sendMsg = async function() {
+  const text = document.getElementById("msg").value.trim();
 
-// USERS
-function loadUsers() {
-  onSnapshot(collection(db, "users"), (snap) => {
-    users.innerHTML = "";
-    snap.forEach(d => {
-      if (d.id === me.uid) return;
+  if (!text) return;
 
-      const div = document.createElement("div");
-      div.innerText = d.data().name;
-      div.onclick = () => openChat(d.id);
-
-      users.appendChild(div);
-    });
-  });
-}
-
-// CHAT ID
-function chatId(a,b){
-  return a < b ? a+"_"+b : b+"_"+a;
-}
-
-// OPEN CHAT
-function openChat(uid){
-  selected = uid;
-
-  const q = query(
-    collection(db,"messages"),
-    where("chatId","==",chatId(me.uid,uid)),
-    orderBy("createdAt")
-  );
-
-  onSnapshot(q,(snap)=>{
-    chatBox.innerHTML="";
-    snap.forEach(d=>{
-      const m = d.data();
-      const div = document.createElement("div");
-      div.innerText = m.text;
-      chatBox.appendChild(div);
-    });
-  });
-}
-
-// SEND
-window.send = async () => {
-  if(!selected) return;
-
-  await addDoc(collection(db,"messages"),{
-    chatId: chatId(me.uid,selected),
-    sender: me.uid,
-    text: msg.value,
-    createdAt: serverTimestamp()
+  await addDoc(collection(db, "messages"), {
+    user: currentUser,
+    text: text,
+    time: serverTimestamp()
   });
 
-  msg.value="";
+  document.getElementById("msg").value = "";
 };
+
+// ✅ REALTIME CHAT
+function loadMessages() {
+  const q = query(collection(db, "messages"), orderBy("time"));
+
+  onSnapshot(q, (snapshot) => {
+    let html = "";
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      html += `<p><b>${d.user}:</b> ${d.text}</p>`;
+    });
+    document.getElementById("chat").innerHTML = html;
+  });
+}
 
 </script>
 
