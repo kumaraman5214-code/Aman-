@@ -1,74 +1,153 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>TalkZone Chat</title>
+  <title>TalkZone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
 
-<h2>TalkZone Chat</h2>
+<body style="font-family:sans-serif; padding:20px;">
 
-<input id="user" placeholder="username">
-<input id="pass" type="password" placeholder="password">
-<button onclick="login()">Login</button>
+<h2>💬 TalkZone</h2>
+
+<!-- LOGIN -->
+<input id="user" placeholder="Username"><br><br>
+<input id="pass" type="password" placeholder="Password"><br><br>
+<button onclick="login()">Login / Signup</button>
 
 <hr>
 
-<input id="msg" placeholder="message">
+<!-- CHAT -->
+<input id="msg" placeholder="Type message">
 <button onclick="sendMsg()">Send</button>
 
-<div id="chat"></div>
+<div id="chat" style="margin-top:20px;"></div>
 
-<!-- Firebase CDN -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<hr>
 
-<script>
+<!-- ADMIN -->
+<input id="adminCode" placeholder="Admin Secret">
+<button onclick="adminLogin()">Admin Login</button>
+
+<div id="adminPanel" style="display:none; margin-top:10px;">
+  <h3>👑 Admin Panel</h3>
+  <button onclick="deleteAll()">Delete All Messages</button>
+</div>
+
+<script type="module">
+
+// 🔥 FIREBASE SDK
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, getDoc, doc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// 🔥 CONFIG (already correct)
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
-  projectId: "talkzone-b3488",
+  projectId: "talkzone-b3488"
 };
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-function login() {
-  const email = document.getElementById("user").value + "@test.com";
-  const pass = document.getElementById("pass").value;
+let currentUser = null;
 
-  auth.signInWithEmailAndPassword(email, pass)
-    .then(() => alert("Login success"))
-    .catch(() => {
-      auth.createUserWithEmailAndPassword(email, pass)
-        .then(() => alert("Account created"))
-        .catch(err => alert(err.message));
-    });
-}
+// 🔐 LOGIN SYSTEM
+window.login = async () => {
+  const u = document.getElementById("user").value.trim();
+  const p = document.getElementById("pass").value.trim();
 
-function sendMsg() {
+  if(!u || !p){
+    alert("Enter username & password");
+    return;
+  }
+
+  const email = u + "@chat.com";
+
+  try {
+    const res = await signInWithEmailAndPassword(auth, email, p);
+    currentUser = res.user.email;
+    alert("Login success");
+  } catch (e) {
+    const res = await createUserWithEmailAndPassword(auth, email, p);
+    currentUser = res.user.email;
+    alert("Account created");
+  }
+};
+
+// 📤 SEND MESSAGE
+window.sendMsg = async () => {
   const msg = document.getElementById("msg").value;
-  const user = auth.currentUser.email;
 
-  db.collection("messages").add({
+  if(!msg || !currentUser){
+    alert("Login first");
+    return;
+  }
+
+  await addDoc(collection(db, "messages"), {
+    user: currentUser,
     text: msg,
-    user: user,
     time: new Date()
   });
-}
 
-db.collection("messages")
-  .orderBy("time")
-  .onSnapshot(snapshot => {
-    const chat = document.getElementById("chat");
-    chat.innerHTML = "";
+  document.getElementById("msg").value = "";
+};
 
-    snapshot.forEach(doc => {
-      const m = doc.data();
-      chat.innerHTML += `<p><b>${m.user}:</b> ${m.text}</p>`;
-    });
+// 💬 REALTIME CHAT
+onSnapshot(collection(db, "messages"), snap => {
+  const chat = document.getElementById("chat");
+  chat.innerHTML = "";
+
+  snap.forEach(doc => {
+    const m = doc.data();
+
+    const name = m.user.split("@")[0];
+
+    if(m.user === currentUser){
+      chat.innerHTML += `<div style="text-align:right;color:green;">
+        You: ${m.text}
+      </div>`;
+    } else {
+      chat.innerHTML += `<div style="text-align:left;color:blue;">
+        ${name}: ${m.text}
+      </div>`;
+    }
   });
+
+  chat.scrollTop = chat.scrollHeight;
+});
+
+// 👑 ADMIN LOGIN
+window.adminLogin = async () => {
+  const input = document.getElementById("adminCode").value;
+
+  const snap = await getDoc(doc(db, "config", "admin"));
+
+  if(!snap.exists()){
+    alert("Admin config missing");
+    return;
+  }
+
+  const realCode = snap.data().code;
+
+  if(input === realCode){
+    document.getElementById("adminPanel").style.display = "block";
+    alert("Admin Mode ON");
+  } else {
+    alert("Wrong code");
+  }
+};
+
+// 🧨 DELETE ALL MESSAGES (ADMIN)
+window.deleteAll = async () => {
+  const snap = await getDocs(collection(db, "messages"));
+
+  snap.forEach(d => deleteDoc(d.ref));
+
+  alert("All messages deleted");
+};
+
 </script>
 
 </body>
