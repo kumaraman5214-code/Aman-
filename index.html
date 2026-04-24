@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TalkZone Clean</title>
+<title>TalkZone Final</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -22,6 +22,7 @@ button{background:#2ea043;color:#fff;font-weight:bold}
 
 <body>
 
+<!-- LOGIN -->
 <div class="box" id="login">
   <h2>TalkZone</h2>
   <input id="u" placeholder="Username">
@@ -29,12 +30,14 @@ button{background:#2ea043;color:#fff;font-weight:bold}
   <button onclick="login()">Login / Signup</button>
 </div>
 
+<!-- SEARCH -->
 <div class="box" id="search" style="display:none">
   <h3>Search User</h3>
   <input id="searchUser" placeholder="Type username...">
   <div id="list"></div>
 </div>
 
+<!-- CHAT -->
 <div class="box" id="chat" style="display:none">
   <h3 id="chatName"></h3>
   <div id="msgs"></div>
@@ -44,7 +47,7 @@ button{background:#2ea043;color:#fff;font-weight:bold}
 
 <script>
 
-// ✅ CONFIG
+// 🔥 FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
@@ -62,8 +65,8 @@ let currentChat=null;
 // ❌ AUTO LOGIN OFF
 window.onload = ()=> auth.signOut();
 
-// LOGIN
-function login(){
+// 🔑 LOGIN / SIGNUP
+async function login(){
   let u=document.getElementById("u").value.trim().toLowerCase();
   let p=document.getElementById("p").value;
 
@@ -79,18 +82,30 @@ function login(){
 
   let email=u+"@chat.com";
 
-  auth.signInWithEmailAndPassword(email,p)
-  .catch(async ()=>{
-    let cred=await auth.createUserWithEmailAndPassword(email,p);
+  try{
+    let snap = await db.collection("users")
+      .where("name","==",u)
+      .get();
 
-    await db.collection("users").doc(cred.user.uid).set({
-      name:u,
-      uid:cred.user.uid
-    });
-  });
+    if(!snap.empty){
+      // existing → login
+      await auth.signInWithEmailAndPassword(email,p);
+    }else{
+      // new → create
+      let cred=await auth.createUserWithEmailAndPassword(email,p);
+
+      await db.collection("users").doc(cred.user.uid).set({
+        name:u,
+        uid:cred.user.uid
+      });
+    }
+
+  }catch(e){
+    alert("Username taken or wrong password");
+  }
 }
 
-// AUTH
+// AUTH STATE
 auth.onAuthStateChanged(user=>{
   if(user){
     ME=user;
@@ -99,7 +114,7 @@ auth.onAuthStateChanged(user=>{
   }
 });
 
-// 🔍 SEARCH USER
+// 🔍 SEARCH USERS
 document.getElementById("searchUser").oninput=function(){
   let val=this.value.toLowerCase();
 
@@ -126,12 +141,18 @@ document.getElementById("searchUser").oninput=function(){
   });
 };
 
+// 🧠 CHAT ID (WhatsApp logic)
+function getChatId(uid1, uid2){
+  return [uid1, uid2].sort().join("_");
+}
+
 // OPEN CHAT
 function openChat(user){
-  currentChat=[ME.uid,user.uid].sort().join("_");
+  currentChat = getChatId(ME.uid, user.uid);
 
   document.getElementById("search").style.display="none";
   document.getElementById("chat").style.display="block";
+
   document.getElementById("chatName").innerText=user.name;
 
   loadMessages();
@@ -155,12 +176,13 @@ function loadMessages(){
       if(m.uid===ME.uid) div.className+=" me";
 
       div.innerText=m.text;
+
       box.appendChild(div);
     });
   });
 }
 
-// SEND
+// SEND MESSAGE
 function send(){
   let text=document.getElementById("m").value;
   if(!text) return;
