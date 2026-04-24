@@ -8,41 +8,32 @@
 <style>
 :root{
   --bg:#0d1117;
-  --card:#161b22;
+  --panel:#161b22;
   --border:#30363d;
   --accent:#2ea043;
   --text:#e6edf3;
   --sub:#8b949e;
 }
+*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif}
 
-*{box-sizing:border-box;margin:0;padding:0}
-
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:sans-serif;
-}
+body{background:var(--bg);color:var(--text);height:100vh}
 
 /* LOGIN */
 #login{
-  height:100vh;
+  position:absolute;
+  inset:0;
   display:flex;
-  align-items:center;
   justify-content:center;
+  align-items:center;
 }
 
 .card{
-  width:100%;
+  width:90%;
   max-width:380px;
-  background:var(--card);
-  padding:30px;
+  background:var(--panel);
+  padding:25px;
   border-radius:16px;
   border:1px solid var(--border);
-}
-
-.card h2{
-  text-align:center;
-  margin-bottom:20px;
 }
 
 input{
@@ -52,7 +43,7 @@ input{
   border-radius:8px;
   border:1px solid var(--border);
   background:#0d1117;
-  color:white;
+  color:#fff;
 }
 
 button{
@@ -75,17 +66,17 @@ button{
 
 /* SIDEBAR */
 .sidebar{
-  width:280px;
-  background:var(--card);
+  width:300px;
+  background:var(--panel);
   border-right:1px solid var(--border);
   display:flex;
   flex-direction:column;
 }
 
-.header{
+.sb-head{
   padding:15px;
   border-bottom:1px solid var(--border);
-  font-weight:600;
+  font-weight:bold;
 }
 
 .users{
@@ -98,17 +89,14 @@ button{
   border-bottom:1px solid var(--border);
   cursor:pointer;
   display:flex;
-  align-items:center;
   gap:10px;
+  align-items:center;
 }
 
-.user:hover{
-  background:#0d1117;
-}
+.user:hover{background:#0d1117}
 
 .avatar{
-  width:35px;
-  height:35px;
+  width:35px;height:35px;
   border-radius:50%;
   background:var(--accent);
   display:flex;
@@ -117,19 +105,40 @@ button{
   font-weight:bold;
 }
 
-.name{
-  font-size:14px;
-}
-
-/* MAIN AREA */
-.main{
+/* CHAT AREA */
+.chat{
   flex:1;
   display:flex;
-  align-items:center;
-  justify-content:center;
+  flex-direction:column;
+}
+
+.chat-head{
+  padding:15px;
+  border-bottom:1px solid var(--border);
+}
+
+.messages{
+  flex:1;
+  padding:15px;
+  overflow:auto;
   color:var(--sub);
 }
 
+.input{
+  display:flex;
+  border-top:1px solid var(--border);
+}
+
+.input input{
+  flex:1;
+  border:none;
+  padding:14px;
+  background:#0d1117;
+}
+
+.input button{
+  width:100px;
+}
 </style>
 </head>
 
@@ -138,7 +147,7 @@ button{
 <!-- LOGIN -->
 <div id="login">
   <div class="card">
-    <h2>💬 TalkZone</h2>
+    <h2>TalkZone</h2>
     <input id="u" placeholder="Username">
     <input id="p" type="password" placeholder="Password">
     <button onclick="login()">Login / Signup</button>
@@ -149,12 +158,20 @@ button{
 <div id="app">
 
   <div class="sidebar">
-    <div class="header">Users</div>
+    <div class="sb-head">Users</div>
     <div class="users" id="list"></div>
   </div>
 
-  <div class="main">
-    Select a user to start chat
+  <div class="chat">
+    <div class="chat-head">Select user</div>
+    <div class="messages" id="msg">
+      No chat selected
+    </div>
+
+    <div class="input">
+      <input placeholder="Type message...">
+      <button>Send</button>
+    </div>
   </div>
 
 </div>
@@ -247,7 +264,7 @@ function loadUsers(){
 
       div.innerHTML=`
         <div class="avatar">${data.name[0].toUpperCase()}</div>
-        <div class="name">${data.name}</div>
+        <div>${data.name}</div>
       `;
 
       list.appendChild(div);
