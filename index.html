@@ -2,21 +2,26 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TalkZone Final</title>
+<title>TalkZone Ultra</title>
 
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
 <style>
 body{margin:0;background:#0d1117;color:#fff;font-family:sans-serif}
-.box{max-width:400px;margin:auto;padding:20px}
+.box{max-width:420px;margin:auto;padding:15px}
 input,button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:8px}
 input{background:#161b22;color:#fff}
 button{background:#2ea043;color:#fff;font-weight:bold}
-.user{padding:10px;border-bottom:1px solid #30363d;cursor:pointer}
+.user{padding:12px;border-bottom:1px solid #30363d;cursor:pointer}
 .msg{margin:5px 0}
 .me{color:#00ff9d}
+.tick{font-size:12px;margin-left:5px}
+.seen{color:#00bfff}
+.red{color:red;font-size:12px}
 </style>
 </head>
 
@@ -30,16 +35,25 @@ button{background:#2ea043;color:#fff;font-weight:bold}
   <button onclick="login()">Login / Signup</button>
 </div>
 
-<!-- SEARCH -->
-<div class="box" id="search" style="display:none">
-  <h3>Search User</h3>
-  <input id="searchUser" placeholder="Type username...">
+<!-- HOME -->
+<div class="box" id="home" style="display:none">
+  <h3>Chats</h3>
+  <button onclick="showNew()">➕ New Chat</button>
+  <div id="chatList"></div>
+</div>
+
+<!-- NEW CHAT -->
+<div class="box" id="newChat" style="display:none">
+  <button onclick="goHome()">⬅ Back</button>
+  <input id="searchUser" placeholder="Search user...">
   <div id="list"></div>
 </div>
 
 <!-- CHAT -->
 <div class="box" id="chat" style="display:none">
+  <button onclick="goHome()">⬅ Back</button>
   <h3 id="chatName"></h3>
+  <div id="typing"></div>
   <div id="msgs"></div>
   <input id="m" placeholder="Message">
   <button onclick="send()">Send</button>
@@ -47,7 +61,6 @@ button{background:#2ea043;color:#fff;font-weight:bold}
 
 <script>
 
-// 🔥 FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAKLZ4dHYp0ZFLolMB5XPxDUu-QPXB_MqA",
   authDomain: "talkzone-b3488.firebaseapp.com",
@@ -56,147 +69,215 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
-const auth = firebase.auth();
-const db = firebase.firestore();
+const auth=firebase.auth();
+const db=firebase.firestore();
+const rtdb=firebase.database();
 
-let ME=null;
-let currentChat=null;
+let ME=null,currentChat=null;
 
-// ❌ AUTO LOGIN OFF
-window.onload = ()=> auth.signOut();
-
-// 🔑 LOGIN / SIGNUP
+// LOGIN
 async function login(){
-  let u=document.getElementById("u").value.trim().toLowerCase();
-  let p=document.getElementById("p").value;
+let u=uEl.value.trim().toLowerCase();
+let p=pEl.value;
 
-  if(!u || u.length<3){
-    alert("Username 3+ required");
-    return;
-  }
+if(u.length<3||p.length<6){alert("Invalid");return;}
 
-  if(!p || p.length<6){
-    alert("Password 6+ required");
-    return;
-  }
+let email=u+"@chat.com";
 
-  let email=u+"@chat.com";
+try{
+let snap=await db.collection("users").where("name","==",u).get();
 
-  try{
-    let snap = await db.collection("users")
-      .where("name","==",u)
-      .get();
-
-    if(!snap.empty){
-      // existing → login
-      await auth.signInWithEmailAndPassword(email,p);
-    }else{
-      // new → create
-      let cred=await auth.createUserWithEmailAndPassword(email,p);
-
-      await db.collection("users").doc(cred.user.uid).set({
-        name:u,
-        uid:cred.user.uid
-      });
-    }
-
-  }catch(e){
-    alert("Username taken or wrong password");
-  }
+if(!snap.empty){
+await auth.signInWithEmailAndPassword(email,p);
+}else{
+let cred=await auth.createUserWithEmailAndPassword(email,p);
+await db.collection("users").doc(cred.user.uid).set({name:u,uid:cred.user.uid});
+}
+}catch(e){alert("Error");}
 }
 
-// AUTH STATE
+const uEl=document.getElementById("u");
+const pEl=document.getElementById("p");
+
+// AUTH
 auth.onAuthStateChanged(user=>{
-  if(user){
-    ME=user;
-    document.getElementById("login").style.display="none";
-    document.getElementById("search").style.display="block";
-  }
+if(user){
+ME=user;
+
+// ONLINE
+let ref=rtdb.ref("status/"+ME.uid);
+ref.set({state:"online",last:Date.now()});
+ref.onDisconnect().set({state:"offline",last:Date.now()});
+
+showHome();
+loadChats();
+}
 });
 
-// 🔍 SEARCH USERS
-document.getElementById("searchUser").oninput=function(){
-  let val=this.value.toLowerCase();
+// NAV
+function showHome(){
+login.style.display="none";
+home.style.display="block";
+newChat.style.display="none";
+chat.style.display="none";
+}
+function showNew(){home.style.display="none";newChat.style.display="block";}
+function goHome(){showHome();}
 
-  db.collection("users").get().then(snap=>{
-    let list=document.getElementById("list");
-    list.innerHTML="";
+// SEARCH
+searchUser.oninput=async function(){
+let val=this.value.toLowerCase();
+let snap=await db.collection("users").get();
+list.innerHTML="";
 
-    snap.forEach(d=>{
-      let u=d.data();
-
-      if(!u.name) return;
-      if(u.uid===ME.uid) return;
-
-      if(u.name.includes(val)){
-        let div=document.createElement("div");
-        div.className="user";
-        div.innerText=u.name;
-
-        div.onclick=()=>openChat(u);
-
-        list.appendChild(div);
-      }
-    });
-  });
+snap.forEach(d=>{
+let u=d.data();
+if(u.uid===ME.uid)return;
+if(u.name.includes(val)){
+let div=document.createElement("div");
+div.className="user";
+div.innerText=u.name;
+div.onclick=()=>openChat(u);
+list.appendChild(div);
+}
+});
 };
 
-// 🧠 CHAT ID (WhatsApp logic)
-function getChatId(uid1, uid2){
-  return [uid1, uid2].sort().join("_");
+// CHAT ID
+function getChatId(a,b){return[a,b].sort().join("_");}
+
+// FORMAT LAST SEEN
+function format(ts){
+let d=new Date(ts);
+return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
 }
 
 // OPEN CHAT
 function openChat(user){
-  currentChat = getChatId(ME.uid, user.uid);
+currentChat=getChatId(ME.uid,user.uid);
 
-  document.getElementById("search").style.display="none";
-  document.getElementById("chat").style.display="block";
+home.style.display="none";
+newChat.style.display="none";
+chat.style.display="block";
 
-  document.getElementById("chatName").innerText=user.name;
+// STATUS
+rtdb.ref("status/"+user.uid).on("value",snap=>{
+let s=snap.val();
+if(s && s.state==="online"){
+chatName.innerText=user.name+" 🟢";
+}else if(s){
+chatName.innerText=user.name+" • last seen "+format(s.last);
+}
+});
 
-  loadMessages();
+// TYPING
+db.collection("chats").doc(currentChat).onSnapshot(doc=>{
+let d=doc.data();
+typing.innerText=(d && d.typing && d.typing!==ME.uid)?"typing...":"";
+});
+
+loadMessages();
 }
 
-// LOAD MESSAGES
+// LOAD CHATS
+function loadChats(){
+db.collection("chats").orderBy("lastTime","desc")
+.onSnapshot(snap=>{
+chatList.innerHTML="";
+snap.forEach(doc=>{
+let id=doc.id,data=doc.data();
+if(!id.includes(ME.uid))return;
+
+let other=id.replace(ME.uid,"").replace("_","");
+
+db.collection("users").doc(other).get().then(u=>{
+let d=u.data(); if(!d)return;
+
+let div=document.createElement("div");
+div.className="user";
+div.innerHTML=`
+<b>${d.name}</b><br>
+<small>${data.lastMsg||""}</small>
+${data.unread?`<span class="red"> 🔴${data.unread}</span>`:""}
+`;
+
+div.onclick=()=>openChat(d);
+chatList.appendChild(div);
+});
+});
+});
+}
+
+// LOAD MSG
 function loadMessages(){
-  db.collection("chats")
-  .doc(currentChat)
-  .collection("messages")
-  .orderBy("time")
-  .onSnapshot(snap=>{
-    let box=document.getElementById("msgs");
-    box.innerHTML="";
+db.collection("chats").doc(currentChat)
+.collection("messages").orderBy("time")
+.onSnapshot(snap=>{
+msgs.innerHTML="";
 
-    snap.forEach(d=>{
-      let m=d.data();
-      let div=document.createElement("div");
+snap.forEach(doc=>{
+let m=doc.data();
 
-      div.className="msg";
-      if(m.uid===ME.uid) div.className+=" me";
-
-      div.innerText=m.text;
-
-      box.appendChild(div);
-    });
-  });
+let tick="";
+if(m.uid===ME.uid){
+tick=m.seen?"✔✔":"✔";
 }
 
-// SEND MESSAGE
+let del="";
+if(m.uid===ME.uid && !m.deleted){
+del=`<button onclick="delMsg('${doc.id}')">❌</button>`;
+}
+
+let div=document.createElement("div");
+div.className="msg"+(m.uid===ME.uid?" me":"");
+
+div.innerHTML=m.deleted?"<i>deleted</i>":`${m.text} <span class="tick ${m.seen?'seen':''}">${tick}</span> ${del}`;
+
+msgs.appendChild(div);
+
+// SEEN
+if(m.uid!==ME.uid && !m.seen){
+doc.ref.update({seen:true});
+db.collection("chats").doc(currentChat).set({unread:0},{merge:true});
+}
+});
+});
+}
+
+// SEND
 function send(){
-  let text=document.getElementById("m").value;
-  if(!text) return;
+let text=m.value;
+if(!text)return;
 
-  db.collection("chats")
-  .doc(currentChat)
-  .collection("messages")
-  .add({
-    text:text,
-    uid:ME.uid,
-    time:Date.now()
-  });
+let ref=db.collection("chats").doc(currentChat).collection("messages").doc();
 
-  document.getElementById("m").value="";
+ref.set({
+text,uid:ME.uid,time:Date.now(),seen:false,deleted:false
+});
+
+// LAST MSG + UNREAD
+db.collection("chats").doc(currentChat).set({
+lastMsg:text,
+lastTime:Date.now(),
+typing:"",
+unread:firebase.firestore.FieldValue.increment(1)
+},{merge:true});
+
+m.value="";
+}
+
+// TYPING SEND
+m.oninput=()=>{
+db.collection("chats").doc(currentChat).set({
+typing:ME.uid
+},{merge:true});
+};
+
+// DELETE
+function delMsg(id){
+db.collection("chats").doc(currentChat)
+.collection("messages").doc(id)
+.update({deleted:true,text:""});
 }
 
 </script>
